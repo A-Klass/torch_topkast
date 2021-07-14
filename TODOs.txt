@@ -1,0 +1,10 @@
+#    Gern spezifischere TODOs ausformulieren und hier rein!
+
+##############################################################################
+#    PROOF OF CONCEPT
+#        Erst mal nicht generisch, sondern minimale funktionierende Lösung -> Resnet50 wie in dem Paper beschrieben bietet sich an. Zuallererst aber mal kleine Schritte ausprobieren mit torch.sparse
+
+##############################################################################
+#    IDEAS FOR TESTING
+#        Subroutinen für: assert effective dimensionality?
+#        Früher oder später Modul-Ordnerstruktur mit eigenem Testordner?
