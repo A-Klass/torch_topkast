@@ -11,28 +11,17 @@ class topkTraining(torch.autograd.Function):
     """ Custom pytorch function to handle changing connections"""
 
     @staticmethod
-    def forward(ctx, inputs, weights, bias, topk_forward, topk_backward):
-        # Get the number of weights.
-        number_weights = weigths.shape.numel()
-
-        # Get number percentile of weigths to not set to zero
-        topk_forward_percentage = topk_forward / number_weights
-        topk_backward_percentage = topk_backward / number_weights
-
-        mask_forward = compute_mask(weights, topk_forward_percentage)
-        mask_backward = compute_mask(weights, topk_backward_percentage)
-
+    def forward(ctx, inputs, weights, bias, indices_forward, indices_backward):
         # output = torch_sparse.spmm(indices, weights, out_features, in_features, inputs.t()).t()
-        target = torch.sparse.FloatTensor(
-            indices, weights, torch.Size([out_features, in_features]),
-        ).to_dense()
-        output = torch.mm(target, inputs.t()).t()
+        weigths = torch.sparse.FloatTensor(
+            indices_forward, weights[indices_forward], weights.shape)
+        output = torch.addmm(bias, weigths, inputs.t()).t()
 
-        ctx.save_for_backward(inputs, weights, indices)
-        ctx.in1 = k
-        ctx.in2 = out_features
-        ctx.in3 = in_features
-        ctx.in4 = max_size
+        # ctx.save_for_backward(inputs, weights, bias, indices_backward)
+        # ctx.in1 = k
+        # ctx.in2 = out_features
+        # ctx.in3 = in_features
+        # ctx.in4 = max_size
 
         return output
 
@@ -52,15 +41,6 @@ class topkTraining(torch.autograd.Function):
         
 
         return grad_input, None, None, None, None, None
-    
-    def compute_mask(w, topk = 0.5):
-        if w.is_sparse:
-            threshold = np.quantile(w.values().detach(), topk)
-            mask = w.values().detach() > threshold
-        else:
-            threshold = np.quantile(w.reshape(-1).detach(), topk)
-            mask = w.reshape(-1).detach() > threshold
-        return mask.reshape(w.shape)
 
 #%%
 class TopkLinear(nn.Module):
@@ -76,24 +56,55 @@ class TopkLinear(nn.Module):
 
         self.topk_forward = topk_forward
         self.topk_backward = topk_backward
-        self.weight = Parameter(torch.empty((out_features, in_features), **factory_kwargs))
+        self.weight = nn.Parameter(torch.empty((out_features, in_features), **factory_kwargs))
         if bias:
-            self.bias = Parameter(torch.empty(out_features, **factory_kwargs))
+            self.bias = nn.Parameter(torch.empty(out_features, **factory_kwargs))
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        torch.nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
         if self.bias is not None:
-            fan_in, _ = init._calculate_fan_in_and_fan_out(self.weight)
+            fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.weight)
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
-            init.uniform_(self.bias, -bound, bound)
+            torch.nn.init.uniform_(self.bias, -bound, bound)
 
+    def compute_mask(self, topk):
+        w = self.weight
+        topk_percantage = topk / w.shape.numel()
+        if w.is_sparse:
+            threshold = np.quantile(w.values().detach(), topk_percantage)
+            mask = torch.where(w.values().detach() > threshold)
+        else:
+            threshold = np.quantile(w.reshape(-1).detach(), topk_percantage)
+            mask = torch.where(w.reshape(-1).detach() > threshold)
+        return mask
+    
     def forward(self, inputs):
-        return topkTraining.apply(inputs, self.weights, self.bias, self.topk_forward,
-                                  self.topk_backward)
+        self.indices_forward = self.compute_mask(self.topk_forward)
+        self.indices_backward = self.compute_mask(self.topk_backward)
+
+
+        if self.training:
+            output = topkTraining.apply(inputs, self.weight, self.bias, self.indices_forward,
+                                        self.indices_backward)
+        else:
+            with torch.no_grad():
+                weights = torch.sparse.FloatTensor(self.indices_forward, 
+                                                  self.weight[self.indices_forward],
+                                                  self.weight.shape)
+                output = torch.mm(weights, inputs.t()).t()
+        
+        return output
 
 
 
 #%%
+layer = TopkLinear(10, 11, 4, 5)
+x = torch.rand(10)
+layer.training = False
+layer(x)
+# %%
+(layer.weight * (layer.compute_mask(5) == False)).to_sparse()
+# %%
