@@ -8,14 +8,19 @@ import torch.nn as nn
 
 #%%
 class topkTraining(torch.autograd.Function):
-    """ Custom pytorch function to handle changing connections"""
+    """ 
+    Custom pytorch function to handle changing connections and topkast
+    ctx = context in which you can save stuff that doesn't need gradients.
+    """
 
     @staticmethod
     def forward(ctx, inputs, weights, bias, indices_forward, indices_backward):
         # output = torch_sparse.spmm(indices, weights, out_features, in_features, inputs.t()).t()
-        weigths = torch.sparse.FloatTensor(
+        weigth = torch.sparse_coo_tensor(
             indices_forward, weights[indices_forward], weights.shape)
-        output = torch.addmm(bias, weigths, inputs.t()).t()
+        output = torch.sparse.addmm(bias.unsqueeze(1), weigth, inputs.t()).t()
+
+        ctx.save_for_backward(inputs, weights, bias)
 
         # ctx.save_for_backward(inputs, weights, bias, indices_backward)
         # ctx.in1 = k
@@ -27,20 +32,28 @@ class topkTraining(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        inputs, weights, indices = ctx.saved_tensors
-        k = ctx.in1
-        out_features = ctx.in2
-        in_features = ctx.in3
-        max_size = ctx.in4
+        # inputs, weights, indices = ctx.saved_tensors
+        # k = ctx.in1
+        # out_features = ctx.in2
+        # in_features = ctx.in3
+        # max_size = ctx.in4
 
-        device = grad_output.device
-        p_index = torch.LongTensor([1, 0])
-        new_indices = torch.zeros_like(indices).to(device=device)
-        new_indices[p_index] = indices
+        # device = grad_output.device
+        # p_index = torch.LongTensor([1, 0])
+        # new_indices = torch.zeros_like(indices).to(device=device)
+        # new_indices[p_index] = indices
 
-        
+        input, weight, bias = ctx.saved_tensors
+        grad_input = grad_weight = grad_bias = None
 
-        return grad_input, None, None, None, None, None
+        if ctx.needs_input_grad[0]:
+            grad_input = grad_output.mm(weight)
+        if ctx.needs_input_grad[1]:
+            grad_weight = grad_output.t().mm(input)
+        if bias is not None and ctx.needs_input_grad[2]:
+            grad_bias = grad_output.sum(0)
+
+        return grad_input, grad_weight, grad_bias
 
 #%%
 class TopkLinear(nn.Module):
@@ -69,42 +82,58 @@ class TopkLinear(nn.Module):
             fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.weight)
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
             torch.nn.init.uniform_(self.bias, -bound, bound)
-
-    def compute_mask(self, topk):
-        w = self.weight
-        topk_percantage = topk / w.shape.numel()
-        if w.is_sparse:
-            threshold = np.quantile(w.values().detach(), topk_percantage)
-            mask = torch.where(w.values().detach() > threshold)
-        else:
-            threshold = np.quantile(w.reshape(-1).detach(), topk_percantage)
-            mask = torch.where(w.reshape(-1).detach() > threshold)
-        return mask
-    
-    def forward(self, inputs):
         self.indices_forward = self.compute_mask(self.topk_forward)
         self.indices_backward = self.compute_mask(self.topk_backward)
 
-
-        if self.training:
-            output = topkTraining.apply(inputs, self.weight, self.bias, self.indices_forward,
-                                        self.indices_backward)
+    def compute_mask(self, topk):
+        w = self.weight
+        topk_percentage = topk / w.shape.numel()
+        if w.is_sparse:
+            threshold = np.quantile(w.values().detach(), topk_percentage)
+            mask = np.where(w.values().detach() <= threshold)
         else:
+            threshold = np.quantile(w.reshape(-1).detach(), topk_percentage)
+            mask = np.where(w.detach() <= threshold)
+        return mask
+    
+    def forward(self, inputs, sparse = True):
+        self.indices_forward = self.compute_mask(self.topk_forward)
+        self.indices_backward = self.compute_mask(self.topk_backward)
+
+        if sparse:
+            if self.training:
+                # Sparse training
+                output = topkTraining.apply(inputs, self.weight, self.bias, self.indices_forward,
+                                            self.indices_backward)
+            else:
+                # Sparse forward pass without training
+                with torch.no_grad():
+                    weights = torch.sparse_coo_tensor(self.indices_forward, 
+                                                    self.weight[self.indices_forward],
+                                                    self.weight.shape)
+                    output = torch.sparse.addmm(self.bias.unsqueeze(1), weights, inputs.t()).t()
+        else:
+            # Dense training is not possible, only a dense forward pass for prediction
             with torch.no_grad():
-                weights = torch.sparse.FloatTensor(self.indices_forward, 
-                                                  self.weight[self.indices_forward],
-                                                  self.weight.shape)
-                output = torch.mm(weights, inputs.t()).t()
+                output = torch.addmm(self.bias.unsqueeze(1), self.weight, inputs.t()).t()
         
         return output
 
 
+#%%
+# objective function
+def objective(x):
+	return x[0]**2.0 + x[1]**2.0
 
 #%%
-layer = TopkLinear(10, 11, 4, 5)
-x = torch.rand(10)
-layer.training = False
-layer(x)
+layer = TopkLinear(2, 1, 0, 0)
+x = torch.rand((10, 2))
+y = torch.tensor([objective(x_) for x_ in x])
+# layer.training = False
+# layer(x, sparse = False)
+y_hat = layer(x)
+# loss = torch.nn.MSELoss()
+# l = loss(y_hat, y)
 # %%
-(layer.weight * (layer.compute_mask(5) == False)).to_sparse()
+l.backward()
 # %%
