@@ -127,13 +127,13 @@ def objective(x):
 
 #%%
 layer = TopkLinear(2, 1, 0, 0)
-x = torch.rand((10, 2))
+x = torch.rand((1, 2))
 y = torch.tensor([objective(x_) for x_ in x])
 # layer.training = False
 # layer(x, sparse = False)
 y_hat = layer(x)
-# loss = torch.nn.MSELoss()
-# l = loss(y_hat, y)
+loss = torch.nn.MSELoss()
+l = loss(y_hat, y)
 # %%
 l.backward()
 # %%
