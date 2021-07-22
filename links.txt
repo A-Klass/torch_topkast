@@ -1,0 +1,16 @@
+# torch sparse
+
+https://pytorch.org/docs/stable/sparse.html
+
+# torch autograd
+
+https://pytorch.org/docs/stable/autograd.html
+
+# defining new autograd functions
+
+https://pytorch.org/tutorials/beginner/examples_autograd/two_layer_net_custom_function.html
+
+# sparselinear project
+
+https://github.com/hyeon95y/SparseLinear
+https://pypi.org/project/sparselinear/#kwin
