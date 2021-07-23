@@ -22,29 +22,20 @@ class topkTraining(torch.autograd.Function):
 
         ctx.save_for_backward(inputs, weights, bias)
 
-        # ctx.save_for_backward(inputs, weights, bias, indices_backward)
-        # ctx.in1 = k
-        # ctx.in2 = out_features
-        # ctx.in3 = in_features
-        # ctx.in4 = max_size
+        ctx.indices_backward = indices_backward
 
         return output
 
     @staticmethod
     def backward(ctx, grad_output):
-        # inputs, weights, indices = ctx.saved_tensors
-        # k = ctx.in1
-        # out_features = ctx.in2
-        # in_features = ctx.in3
-        # max_size = ctx.in4
-
-        # device = grad_output.device
-        # p_index = torch.LongTensor([1, 0])
-        # new_indices = torch.zeros_like(indices).to(device=device)
-        # new_indices[p_index] = indices
 
         input, weight, bias = ctx.saved_tensors
         grad_input = grad_weight = grad_bias = None
+        indices_backward = ctx.indices_backward
+
+        weights = torch.sparse_coo_tensor(self.indices_forward, 
+                                                    self.weight[self.indices_forward],
+                                                    self.weight.shape)
 
         if ctx.needs_input_grad[0]:
             grad_input = grad_output.mm(weight)
@@ -53,7 +44,7 @@ class topkTraining(torch.autograd.Function):
         if bias is not None and ctx.needs_input_grad[2]:
             grad_bias = grad_output.sum(0)
 
-        return grad_input, grad_weight, grad_bias
+        return grad_input, grad_weight, grad_bias, None, None
 
 #%%
 class TopkLinear(nn.Module):
@@ -137,3 +128,4 @@ l = loss(y_hat, y)
 # %%
 l.backward()
 # %%
+layer.weight.grad
