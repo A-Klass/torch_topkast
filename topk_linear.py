@@ -33,10 +33,6 @@ class topkTraining(torch.autograd.Function):
         grad_input = grad_weight = grad_bias = None
         indices_backward = ctx.indices_backward
 
-        # weights = torch.sparse_coo_tensor(self.indices_forward, 
-        #                                             self.weight[self.indices_forward],
-        #                                             self.weight.shape)
-
         if ctx.needs_input_grad[0]:
             grad_input = grad_output.mm(weight)
         if ctx.needs_input_grad[1]:
