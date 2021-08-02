@@ -20,6 +20,7 @@ https://pypi.org/project/sparselinear/#kwin
 https://github.com/galidor/PyTorchPartialLayerFreezing/blob/main/partial_freezing.py
 https://discuss.pytorch.org/t/freezing-individual-weights/57027/3
 
+#### Testing ####
 # unit testing
 
 https://thenerdstation.medium.com/how-to-unit-test-machine-learning-code-57cf6fd81765
@@ -27,3 +28,7 @@ https://thenerdstation.medium.com/how-to-unit-test-machine-learning-code-57cf6fd
 # getting started w/ testing
 
 https://realpython.com/python-testing/
+
+# Erklärungen zum testing module template
+
+https://kenreitz.org/essays/2013/01/27/repository-structure-and-python
