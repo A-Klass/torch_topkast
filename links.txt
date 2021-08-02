@@ -16,5 +16,10 @@ https://github.com/hyeon95y/SparseLinear
 https://pypi.org/project/sparselinear/#kwin
 
 # partial freezing of weights (i.e., requires_grad = False for individual weights)
+
 https://github.com/galidor/PyTorchPartialLayerFreezing/blob/main/partial_freezing.py
 https://discuss.pytorch.org/t/freezing-individual-weights/57027/3
+
+# unit testing
+
+https://thenerdstation.medium.com/how-to-unit-test-machine-learning-code-57cf6fd81765
