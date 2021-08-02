@@ -33,14 +33,13 @@ class topkTraining(torch.autograd.Function):
         grad_input = grad_weight = grad_bias = None
         indices_backward = ctx.indices_backward
 
-        weights = torch.sparse_coo_tensor(self.indices_forward, 
-                                                    self.weight[self.indices_forward],
-                                                    self.weight.shape)
-
         if ctx.needs_input_grad[0]:
             grad_input = grad_output.mm(weight)
         if ctx.needs_input_grad[1]:
             grad_weight = grad_output.t().mm(input)
+            grad_weight = torch.sparse_coo_tensor(indices_backward,
+                                                  grad_weight[indices_backward], 
+                                                  grad_weight.shape)
         if bias is not None and ctx.needs_input_grad[2]:
             grad_bias = grad_output.sum(0)
 
@@ -114,18 +113,21 @@ class TopkLinear(nn.Module):
 #%%
 # objective function
 def objective(x):
-	return x[0]**2.0 + x[1]**2.0
+    out = x**2
+    return out.sum()
 
 #%%
-layer = TopkLinear(2, 1, 0, 0)
-x = torch.rand((1, 2))
+layer1 = TopkLinear(5, 4, 1, 2)
+layer2 = TopkLinear(4, 1, 1, 2)
+x = torch.rand((3, 5))
 y = torch.tensor([objective(x_) for x_ in x])
 # layer.training = False
 # layer(x, sparse = False)
-y_hat = layer(x)
+y_hat = layer2(layer1(x))
 loss = torch.nn.MSELoss()
 l = loss(y_hat, y)
 # %%
-l.backward()
+l.sum().backward()
 # %%
-layer.weight.grad
+layer1.weight.grad, layer2.weight.grad
+# %%
