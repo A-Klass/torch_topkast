@@ -108,6 +108,12 @@ class TopkLinear(nn.Module):
                 output = torch.addmm(self.bias.unsqueeze(1), self.weight, inputs.t()).t()
         
         return output
+    
+    def sparse_weights(self):
+        weights = torch.sparse_coo_tensor(self.indices_forward, 
+                                                    self.weight[self.indices_forward],
+                                                    self.weight.shape)
+        return weights
 
 
 #%%
@@ -124,8 +130,8 @@ y = torch.tensor([objective(x_) for x_ in x])
 # layer.training = False
 # layer(x, sparse = False)
 y_hat = layer2(layer1(x))
-loss = torch.nn.MSELoss()
-l = loss(y_hat, y)
+# loss = TopKastLoss(loss, net, alpha)
+# l = loss(y_hat, y)
 # %%
 l.sum().backward()
 # %%
