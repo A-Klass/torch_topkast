@@ -33,10 +33,10 @@ class TopKastLoss(nn.Module):
                     topk_percentage = topk_backward / param.shape.numel()
                     if param.is_sparse:
                         threshold = np.quantile(param.values().detach(), topk_percentage)
-                        mask = np.where(param.values().detach() <= threshold)
+                        mask = np.where(param.values().detach() >= threshold)
                     else:
                         threshold = np.quantile(param.reshape(-1).detach(), topk_percentage)
-                        mask = np.where(param.detach() <= threshold)
+                        mask = np.where(param.detach() >= threshold)
                     # Apply the mask
                     params.append(param[mask].reshape(-1))
                 else:
