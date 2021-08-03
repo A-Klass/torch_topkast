@@ -7,18 +7,28 @@ from topk_linear import TopkLinear
 
 #%%
 class TopKastLoss(nn.Module):
+    """Takes a normal torch.nn.loss and then adds the discounted (alpha) L2-norm of all
+    active(!) parameters. Goes through all the layers of the net and looks for TopkLinear 
+    Layers and only takes the appropriate weights."""
     def __init__(self, loss, alpha) -> None:
         super(TopKastLoss, self).__init__()
         self.loss = loss()
         self.alpha = alpha
 
     def compute_masked_params(self, net):
-        params = []     
+        # init param list which gets transformed into a 1d Tensor
+        params = []
+        # Go through all the layers
         for child in net.children():
+            # Go through all the parameters of the layers
             for name in child._parameters.keys():
+                # Only continue if it's weights. Biases get skipped.
                 if name != 'weight': continue
                 param = child._parameters[name].detach()
+                # If it's a TopkLinear layer it gets stopped. This is hard coded. 
+                # If we have more Topk-Layers later we will need a better class system here.
                 if isinstance(child, TopkLinear):
+                    # Compute the mask
                     topk_backward = child.topk_backward
                     topk_percentage = topk_backward / param.shape.numel()
                     if param.is_sparse:
@@ -27,6 +37,7 @@ class TopKastLoss(nn.Module):
                     else:
                         threshold = np.quantile(param.reshape(-1).detach(), topk_percentage)
                         mask = np.where(param.detach() <= threshold)
+                    # Apply the mask
                     params.append(param[mask].reshape(-1))
                 else:
                     params.append(param.reshape(-1))
@@ -34,6 +45,7 @@ class TopKastLoss(nn.Module):
         return torch.cat(params)
     
     def forward(self, y_hat, y, net):
+        # get the Tensor for all active weights in the backward pass.
         params = self.compute_masked_params(net)
         l = self.loss(y_hat, y)
         l += self.alpha * torch.linalg.norm(params)
