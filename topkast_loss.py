@@ -7,7 +7,7 @@ import torch.nn as nn
 class TopKastLoss(nn.Module):
     def __init__(self, loss, alpha) -> None:
         super(TopKastLoss, self).__init__()
-        self.loss = loss
+        self.loss = loss()
         self.alpha = alpha
 
 
@@ -17,8 +17,7 @@ class TopKastLoss(nn.Module):
         l += self.alpha * torch.linalg.norm(params)
 
         return l
-# %%
-loss = TopKastLoss(loss = nn.MSELoss, alpha = 0.1)
-# %%
-loss(torch.rand(10), torch.rand(10), torch.rand(1000))
+# %% Don't run, minimal example
+# loss = TopKastLoss(loss = nn.MSELoss, alpha = 0.1)
+# loss(torch.rand(10), torch.rand(10), torch.rand(1000))
 # %%
