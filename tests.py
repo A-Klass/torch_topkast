@@ -1,20 +1,51 @@
 #%% Imports
 
-# import os
-# os.chdir('/home/lisa-wm/Documents/2_uni/3_sem/applied_dl/appl_deepl')
 import topk_linear as tk
+import torch
+import unittest
 
-#%% Unit test: 
+#%% Test layer
 
-layer_1 = tk.TopKastLinear(
-    in_features=5, 
+test_layer = tk.TopkLinear(
+    in_features=100, 
     out_features=1, 
-    topk_forward=1,
-    topk_backward=2)
+    topk_forward=40,
+    topk_backward=50)
 
-print(layer_1.bias)
-print(layer_1.weight)
-print(layer_1.sparse_weights())
+#%% Unit test: class
+
+class TestClass(unittest.TestCase):
+    def test_is_topklinear(self):
+        self.assertIsInstance(test_layer, tk.TopkLinear)
+    
+#%% Unit test: bias & weights
+
+class TestWeightsBias(unittest.TestCase):
+    def test_has_right_size(self):
+        self.assertTrue(test_layer.weight.numel() == test_layer.in_features)
+        self.assertTrue(test_layer.bias.numel() == 1)
+    def test_has_grad(self):
+        self.assertTrue(test_layer.weight.requires_grad)
+        self.assertTrue(test_layer.bias.requires_grad)  
+    
+#%% Unit test: forward sparsity
+
+class TestSparsity(unittest.TestCase):
+    def test_has_right_fwsparsity(self):
+        dense_vals = test_layer.sparse_weights().coalesce().values()
+        self.assertAlmostEqual(
+            test_layer.in_features - dense_vals.numel(), 
+            test_layer.topk_forward)
+    
+#%% Unit test: output
+
+class TestOutput(unittest.TestCase):
+    def test_has_right_size(self):
+        x = torch.rand(1, test_layer.in_features)
+        self.assertTrue(test_layer(x).numel() == 1)
+        
+if __name__ == '__main__':
+    unittest.main()
 
 #%%
 
