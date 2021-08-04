@@ -1,11 +1,11 @@
-#%%
+#%% Imports
 
 import math
 import numpy as np
 import torch
 import torch.nn as nn
 
-#%%
+#%% TopKast training function
 
 class TopKastTraining(torch.autograd.Function):
     """ 
@@ -66,7 +66,8 @@ class TopKastTraining(torch.autograd.Function):
 
         return grad_inputs, grad_weights, grad_bias, None, None
 
-#%%
+#%% TopKast linear layer
+
 class TopKastLinear(nn.Module):
     """"
     Sparse adaptation of nn.Linear module with topkast.
