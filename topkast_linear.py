@@ -116,11 +116,11 @@ class TopKastLinear(nn.Module):
         w = self.weight
         topk_percentage = topk / w.shape.numel()
         if w.is_sparse:
-            threshold = np.quantile(w.values().detach(), topk_percentage)
-            mask = np.where(w.values().detach() >= threshold)
+            threshold = torch.quantile(w.values().detach().abs(), 1 - topk_percentage)
+            mask = torch.where(w.values().detach().abs() >= threshold)
         else:
-            threshold = np.quantile(w.reshape(-1).detach(), topk_percentage)
-            mask = np.where(w.detach() >= threshold)
+            threshold = torch.quantile(w.reshape(-1).detach().abs(), 1 - topk_percentage)
+            mask = torch.where(w.detach().abs() >= threshold)
         return mask
     
     # Define forward pass
@@ -169,3 +169,5 @@ class TopKastLinear(nn.Module):
             values=self.weight[self.indices_forward],
             size=self.weight.shape)
         return weights
+
+# %%
