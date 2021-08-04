@@ -80,10 +80,10 @@ class TopkLinear(nn.Module):
         topk_percentage = topk / w.shape.numel()
         if w.is_sparse:
             threshold = np.quantile(w.values().detach(), topk_percentage)
-            mask = np.where(w.values().detach() <= threshold)
+            mask = np.where(w.values().detach() >= threshold)
         else:
             threshold = np.quantile(w.reshape(-1).detach(), topk_percentage)
-            mask = np.where(w.detach() <= threshold)
+            mask = np.where(w.detach() >= threshold)
         return mask
     
     def forward(self, inputs, sparse = True):
@@ -116,8 +116,6 @@ class TopkLinear(nn.Module):
         return weights
 
 
-#%%
-# objective function
 # def objective(x):
 #     out = x**2
 #     return out.sum()
