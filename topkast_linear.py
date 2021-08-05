@@ -74,24 +74,28 @@ class TopKastLinear(nn.Module):
     """
     
     def __init__(self, in_features: int, out_features: int, topk_forward: int, 
-                 topk_backward: int, bias: bool=True, device=None, 
+                 topk_backward: int, has_bias: bool=True, device=None, 
                  dtype=None) -> None:
         
         factory_kwargs = {'device': device, 'dtype': dtype}
         super(TopKastLinear, self).__init__()
         
-        # Assert that active parameter set in backward pass is at least as 
-        # large as in forward pass to allow for it to change
+        # Perform basic input checks
+        for i in [in_features, out_features, topk_forward, topk_backward]:
+            assert type(i) == int, 'integer input required'
+            assert i > 0, 'inputs must be > 0'
         assert topk_backward >= topk_forward
+        assert type(has_bias) == bool
             
         # Initialize
         self.in_features = in_features
         self.out_features = out_features
         self.topk_forward = topk_forward
         self.topk_backward = topk_backward
+        self.has_bias = has_bias
         self.weight = nn.Parameter(
             torch.empty((out_features, in_features), **factory_kwargs))
-        if bias:
+        if has_bias:
             self.bias = nn.Parameter(
                 torch.empty(out_features, **factory_kwargs))
         else:
