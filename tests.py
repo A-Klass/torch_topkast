@@ -90,4 +90,6 @@ if __name__ == '__main__':
 # # %%
 # layer1.weight.grad, layer2.weight.grad
 
-#%%
+#%% TODO
+
+# test that active set actually changes over iterations
