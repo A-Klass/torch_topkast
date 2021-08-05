@@ -21,21 +21,25 @@ class TestClass(unittest.TestCase):
         
 #%% Unit test: arguments
 
+# really necessary? this could go on forever........
+
 class TestArgs(unittest.TestCase):
     def test_count_infeatures(self):
-        self.assertTrue(type(test_layer.in_features) == int)
-        self.assertGreater(test_layer.in_features, 0)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100.5, 1, 40, 50)
+        self.assertRaises(AssertionError, tk.TopKastLinear, -100, 1, 40, 50)
     def test_count_outfeatures(self):
-        self.assertTrue(type(test_layer.out_features) == int)
-        self.assertGreater(test_layer.out_features, 0)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 40, 50)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 0, 40, 50)
     def test_count_topkforward(self):
-        self.assertTrue(type(test_layer.topk_forward) == int)
-        self.assertGreater(test_layer.topk_forward, 0)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 40.5, 50)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, -40, 50)
     def test_count_topkbackward(self):
-        self.assertTrue(type(test_layer.topk_backward) == int)
-        self.assertGreater(test_layer.topk_backward, 0)        
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 40, 50.5)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 40, -50)
+    def test_topkbackward_geq_topkforward(self):
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1, 40, 30)
     def test_bool_bias(self):
-        self.assertTrue(type(test_layer.has_bias) == bool)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1, 40, 50, 1)
     
 #%% Unit test: bias & weights
 
@@ -65,7 +69,7 @@ class TestSparsity(unittest.TestCase):
 class TestOutput(unittest.TestCase):
     def test_has_right_size(self):
         x = torch.rand(1, test_layer.in_features)
-        self.assertTrue(test_layer(x).numel() == 1)
+        self.assertTrue(test_layer(x).numel() == test_layer.out_features)
         
 if __name__ == '__main__':
     unittest.main()
