@@ -24,7 +24,7 @@ class TopKastTraining(torch.autograd.Function):
         
         # Compute output as weighted sum of inputs plus bias term
         output = torch.sparse.addmm(
-            input=bias.unsqueeze(1), 
+            mat=bias.unsqueeze(1), 
             mat1=weights_used, 
             mat2=inputs.t()).t()
         
@@ -50,7 +50,7 @@ class TopKastTraining(torch.autograd.Function):
 
         # Compute grad wrt inputs if necessary
         if ctx.needs_input_grad[0]:
-            grad_inputs = grad_output.mm(weights)
+            grad_inputs = grad_output.mm(weights).to_sparse()
         
         # Compute grad wrt weights if necessary
         if ctx.needs_input_grad[1]:
@@ -62,7 +62,7 @@ class TopKastTraining(torch.autograd.Function):
             
         # Compute grad wrt bias if necessary (and bias is specified)
         if bias is not None and ctx.needs_input_grad[2]:
-            grad_bias = grad_output.sum(0)
+            grad_bias = grad_output.sum(0).to_sparse()
 
         return grad_inputs, grad_weights, grad_bias, None, None
 
@@ -117,10 +117,10 @@ class TopKastLinear(nn.Module):
         topk_percentage = topk / w.shape.numel()
         if w.is_sparse:
             threshold = torch.quantile(w.values().detach().abs(), 1 - topk_percentage)
-            mask = torch.where(w.values().detach().abs() >= threshold)
+            mask = np.where(w.values().detach().abs() >= threshold)
         else:
             threshold = torch.quantile(w.reshape(-1).detach().abs(), 1 - topk_percentage)
-            mask = torch.where(w.detach().abs() >= threshold)
+            mask = np.where(w.detach().abs() >= threshold)
         return mask
     
     # Define forward pass
@@ -133,12 +133,10 @@ class TopKastLinear(nn.Module):
         if sparse:
             if self.training:
                 # Sparse training
-                output = TopKastTraining.apply(
-                    inputs=inputs, 
-                    weights=self.weight, 
-                    bias=self.bias, 
-                    indices_forward=self.indices_forward,
-                    indices_backward=self.indices_backward)
+                output = TopKastTraining.apply(inputs, self.weight, 
+                                               self.bias, 
+                                               self.indices_forward,
+                                               self.indices_backward)
             else:
                 # Sparse forward pass without training
                 with torch.no_grad():
@@ -147,7 +145,7 @@ class TopKastLinear(nn.Module):
                         values=self.weight[self.indices_forward],
                         size=self.weight.shape)
                     output = torch.sparse.addmm(
-                        input=self.bias.unsqueeze(1), 
+                        mat=self.bias.unsqueeze(1), 
                         mat1=weights, 
                         mat2=inputs.t()).t()
         else:
@@ -155,7 +153,7 @@ class TopKastLinear(nn.Module):
             # prediction
             with torch.no_grad():
                 output = torch.addmm(
-                    input=self.bias.unsqueeze(1), 
+                    mat=self.bias.unsqueeze(1), 
                     mat1=self.weight, 
                     mat2=inputs.t()).t()
         
