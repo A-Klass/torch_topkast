@@ -24,9 +24,9 @@ class TopKastTraining(torch.autograd.Function):
         
         # Compute output as weighted sum of inputs plus bias term
         output = torch.sparse.addmm(
-            input=bias.unsqueeze(1), 
-            mat1=weights_used, 
-            mat2=inputs.t()).t()
+            bias.unsqueeze(1), 
+            weights_used, 
+            inputs.t()).t()
         
         # Store values in saved tensors to access during backward()
         ctx.save_for_backward(inputs, weights, bias)
@@ -134,11 +134,11 @@ class TopKastLinear(nn.Module):
             if self.training:
                 # Sparse training
                 output = TopKastTraining.apply(
-                    inputs=inputs, 
-                    weights=self.weight, 
-                    bias=self.bias, 
-                    indices_forward=self.indices_forward,
-                    indices_backward=self.indices_backward)
+                    inputs, 
+                    self.weight, 
+                    self.bias, 
+                    self.indices_forward,
+                    self.indices_backward)
             else:
                 # Sparse forward pass without training
                 with torch.no_grad():
@@ -147,17 +147,17 @@ class TopKastLinear(nn.Module):
                         values=self.weight[self.indices_forward],
                         size=self.weight.shape)
                     output = torch.sparse.addmm(
-                        input=self.bias.unsqueeze(1), 
-                        mat1=weights, 
-                        mat2=inputs.t()).t()
+                        self.bias.unsqueeze(1), 
+                        weights, 
+                        inputs.t()).t()
         else:
             # Dense training is not possible, only a dense forward pass for 
             # prediction
             with torch.no_grad():
                 output = torch.addmm(
-                    input=self.bias.unsqueeze(1), 
-                    mat1=self.weight, 
-                    mat2=inputs.t()).t()
+                    self.bias.unsqueeze(1), 
+                    self.weight, 
+                    inputs.t()).t()
         
         return output
     

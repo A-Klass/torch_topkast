@@ -1,12 +1,12 @@
 #%% Imports
 
-import topk_linear as tk
+import topkast_linear as tk
 import torch
 import unittest
 
 #%% Test layer
 
-test_layer = tk.TopkLinear(
+test_layer = tk.TopKastLinear(
     in_features=100, 
     out_features=1, 
     topk_forward=40,
@@ -16,7 +16,7 @@ test_layer = tk.TopkLinear(
 
 class TestClass(unittest.TestCase):
     def test_is_topklinear(self):
-        self.assertIsInstance(test_layer, tk.TopkLinear)
+        self.assertIsInstance(test_layer, tk.TopKastLinear)
     
 #%% Unit test: bias & weights
 
@@ -34,7 +34,9 @@ class TestSparsity(unittest.TestCase):
     def test_has_right_fwsparsity(self):
         dense_vals = test_layer.sparse_weights().coalesce().values()
         self.assertAlmostEqual(
-            test_layer.in_features - dense_vals.numel(), 
+            test_layer.in_features - dense_vals.numel(),
+            # should only be dense_vals.numel but class definition probably
+            # not correct atm
             test_layer.topk_forward)
     
 #%% Unit test: output
