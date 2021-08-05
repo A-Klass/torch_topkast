@@ -11,7 +11,7 @@ test_layer = tk.TopKastLinear(
     out_features=1, 
     topk_forward=40,
     topk_backward=50,
-    has_bias=True)
+    bias=True)
 
 #%% Unit test: class
 
