@@ -50,7 +50,7 @@ class TopKastTraining(torch.autograd.Function):
 
         # Compute grad wrt inputs if necessary
         if ctx.needs_input_grad[0]:
-            grad_inputs = grad_output.mm(weights).to_sparse()
+            grad_inputs = grad_output.mm(weights)
         
         # Compute grad wrt weights if necessary
         if ctx.needs_input_grad[1]:
@@ -116,10 +116,10 @@ class TopKastLinear(nn.Module):
         w = self.weight
         topk_percentage = topk / w.shape.numel()
         if w.is_sparse:
-            threshold = torch.quantile(w.values().detach().abs(), 1 - topk_percentage)
+            threshold = torch.quantile(w.values().detach().abs(), topk_percentage)
             mask = np.where(w.values().detach().abs() >= threshold)
         else:
-            threshold = torch.quantile(w.reshape(-1).detach().abs(), 1 - topk_percentage)
+            threshold = torch.quantile(w.reshape(-1).detach().abs(), topk_percentage)
             mask = np.where(w.detach().abs() >= threshold)
         return mask
     
