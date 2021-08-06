@@ -28,7 +28,7 @@ class topkTraining(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-
+        # https://pytorch.org/docs/stable/generated/torch.autograd.Function.backward.html
         input, weight, bias = ctx.saved_tensors
         grad_input = grad_weight = grad_bias = None
         indices_backward = ctx.indices_backward
