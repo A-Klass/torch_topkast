@@ -11,6 +11,7 @@ class topkTraining(torch.autograd.Function):
     """ 
     Custom pytorch function to handle changing connections and topkast
     ctx = context in which you can save stuff that doesn't need gradients.
+    https://pytorch.org/docs/stable/notes/extending.html
     """
 
     @staticmethod
