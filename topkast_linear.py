@@ -99,8 +99,8 @@ class TopKastLinear(nn.Module):
                 torch.empty(out_features, **factory_kwargs))
         else:
             self.register_parameter('bias', None)
-        self.D = self.topk_forward / (self.weight.shape.numel())
         self.reset_parameters()
+        self.D = self.topk_forward / (self.weight.shape.numel())
         
     # Define weight initialization (He et al., 2015)
 
@@ -166,7 +166,6 @@ class TopKastLinear(nn.Module):
         return output
     
     # Define field to access sparse weights
-    
     def sparse_weights(self, forward = True):
         if forward:
             weights = torch.sparse_coo_tensor(
