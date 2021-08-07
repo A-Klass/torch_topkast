@@ -62,7 +62,7 @@ class TopKastTraining(torch.autograd.Function):
             
         # Compute grad wrt bias if necessary (and bias is specified)
         if bias is not None and ctx.needs_input_grad[2]:
-            grad_bias = grad_output.sum(0)
+            grad_bias = grad_output.sum(0).to_sparse()
 
         return grad_inputs, grad_weights, grad_bias, None, None
 
@@ -73,25 +73,28 @@ class TopKastLinear(nn.Module):
     Sparse adaptation of nn.Linear module with topkast.
     """
     
-    def __init__(self, in_features: int, out_features: int, topk_forward: int, 
-                 topk_backward: int, bias: bool=True, device=None, 
+    def __init__(self, in_features: int, out_features: int, p_forward: float, 
+                 p_backward: float, bias: bool=True, device=None, 
                  dtype=None) -> None:
         
         factory_kwargs = {'device': device, 'dtype': dtype}
         super(TopKastLinear, self).__init__()
         
         # Perform basic input checks
-        for i in [in_features, out_features, topk_forward, topk_backward]:
+        for i in [in_features, out_features]:
             assert type(i) == int, 'integer input required'
             assert i > 0, 'inputs must be > 0'
-        assert topk_backward >= topk_forward
+        for i in [topk_forward, topk_backward]:
+            assert type(i) == float, 'float input required'
+            assert i > 0 & i <= 1, 'inputs must be a percentage between 0 and 1'
+        assert p_forward >= p_backward
         assert type(bias) == bool
             
         # Initialize
         self.in_features = in_features
         self.out_features = out_features
-        self.topk_forward = topk_forward
-        self.topk_backward = topk_backward
+        self.p_forward = p_forward
+        self.p_backward = p_backward
         self.weight = nn.Parameter(
             torch.empty((out_features, in_features), **factory_kwargs))
         if bias:
@@ -111,28 +114,27 @@ class TopKastLinear(nn.Module):
                 self.weight)
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
             torch.nn.init.uniform_(self.bias, -bound, bound)
-        self.indices_forward = self.compute_mask(self.topk_forward)
-        self.indices_backward = self.compute_mask(self.topk_backward)
+        self.indices_forward = self.compute_mask(self.p_forward)
+        self.indices_backward = self.compute_mask(self.p_backward)
         
     # Define masking operations
 
-    def compute_mask(self, topk):
+    def compute_mask(self, p):
         w = self.weight
-        topk_percentage = topk / w.shape.numel()
         if w.is_sparse:
-            threshold = np.quantile(w.values().detach(), topk_percentage)
-            mask = np.where(w.values().detach() >= threshold)
+            threshold = torch.quantile(w.values().detach().abs(), 1 - p)
+            mask = np.where(w.values().detach().abs() >= threshold)
         else:
-            threshold = np.quantile(w.reshape(-1).detach(), topk_percentage)
-            mask = np.where(w.detach() >= threshold)
+            threshold = torch.quantile(w.reshape(-1).detach().abs(), 1 - p)
+            mask = np.where(w.detach().abs() >= threshold)
         return mask
     
     # Define forward pass
     
     def forward(self, inputs, sparse=True):
         
-        self.indices_forward = self.compute_mask(self.topk_forward)
-        self.indices_backward = self.compute_mask(self.topk_backward)
+        self.indices_forward = self.compute_mask(self.p_forward)
+        self.indices_backward = self.compute_mask(self.p_backward)
 
         if sparse:
             if self.training:
@@ -178,3 +180,5 @@ class TopKastLinear(nn.Module):
                 values=self.weight[self.indices_backward],
                 size=self.weight.shape)
         return weights
+
+# %%
