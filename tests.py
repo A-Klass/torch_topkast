@@ -56,13 +56,18 @@ class TestWeightsBias(unittest.TestCase):
 #%% Unit test: forward sparsity
 
 class TestSparsity(unittest.TestCase):
-    def test_has_right_fwsparsity(self):
-        dense_vals = test_layer.sparse_weights().coalesce().values()
+    def test_has_right_forward_sparsity(self):
+        vals = test_layer.sparse_weights().coalesce().values()
         self.assertAlmostEqual(
-            test_layer.in_features - dense_vals.numel(),
-            # should only be dense_vals.numel but class definition probably
-            # not correct atm
+            test_layer.in_features - vals.numel(),
+            # TODO align with final def of topk_*ward
             test_layer.topk_forward)
+    def test_has_right_backward_sparsity(self):
+        vals = test_layer.sparse_weights(forward=False).coalesce().values()
+        self.assertAlmostEqual(
+            test_layer.in_features - vals.numel(),
+            # TODO align with final def of topk_*ward
+            test_layer.topk_backward)    
     
 #%% Unit test: output
 
