@@ -9,8 +9,8 @@ import unittest
 test_layer = tk.TopKastLinear(
     in_features=100, 
     out_features=1, 
-    topk_forward=40,
-    topk_backward=50,
+    p_forward=0.6,
+    p_backward=0.4,
     bias=True)
 
 #%% Unit test: class
@@ -25,21 +25,21 @@ class TestClass(unittest.TestCase):
 
 class TestArgs(unittest.TestCase):
     def test_count_infeatures(self):
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100.5, 1, 40, 50)
-        self.assertRaises(AssertionError, tk.TopKastLinear, -100, 1, 40, 50)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100.5, 1, 0.6, 0.4)
+        self.assertRaises(AssertionError, tk.TopKastLinear, -100, 1, 0.6, 0.4)
     def test_count_outfeatures(self):
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 40, 50)
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 0, 40, 50)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 0.6, 0.4)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 0, 0.6, 0.4)
     def test_count_topkforward(self):
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 40.5, 50)
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, -40, 50)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 1.6, 0.4)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, -0.6, 0.4)
     def test_count_topkbackward(self):
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 40, 50.5)
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 40, -50)
-    def test_topkbackward_geq_topkforward(self):
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1, 40, 30)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 0.6, 1.4)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 0.6, -0.4)
+    def test_fwsparsity_geq_bwsparsity(self):
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1, 0.6, 0.8)
     def test_bool_bias(self):
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1, 40, 50, 1)
+        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1, 0.6, 0.4, 1)
     
 #%% Unit test: bias & weights
 
@@ -56,13 +56,14 @@ class TestWeightsBias(unittest.TestCase):
 #%% Unit test: forward sparsity
 
 class TestSparsity(unittest.TestCase):
-    def test_has_right_fwsparsity(self):
-        dense_vals = test_layer.sparse_weights().coalesce().values()
-        self.assertAlmostEqual(
-            test_layer.in_features - dense_vals.numel(),
-            # should only be dense_vals.numel but class definition probably
-            # not correct atm
-            test_layer.topk_forward)
+    def test_has_right_forward_sparsity(self):
+        d = test_layer.weight.numel()
+        s = test_layer.sparse_weights().coalesce().values().numel()
+        self.assertAlmostEqual(s, (1 - test_layer.p_forward) * d)
+    def test_has_right_backward_sparsity(self):
+        d = test_layer.weight.numel()
+        s = test_layer.sparse_weights(forward=False).coalesce().values().numel()
+        self.assertAlmostEqual(s, (1 - test_layer.p_backward) * d)
     
 #%% Unit test: output
 

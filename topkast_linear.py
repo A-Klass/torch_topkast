@@ -84,10 +84,11 @@ class TopKastLinear(nn.Module):
         for i in [in_features, out_features]:
             assert type(i) == int, 'integer input required'
             assert i > 0, 'inputs must be > 0'
-        for i in [topk_forward, topk_backward]:
+        for i in [p_forward, p_backward]:
             assert type(i) == float, 'float input required'
-            assert i > 0 & i <= 1, 'inputs must be a percentage between 0 and 1'
-        assert p_forward >= p_backward
+            assert i > 0, 'inputs must be between 0 and 1'
+            assert i <= 1, 'inputs must be between 0 and 1'
+        assert p_forward > p_backward
         assert type(bias) == bool
             
         # Initialize
@@ -103,7 +104,7 @@ class TopKastLinear(nn.Module):
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
-        self.D = self.topk_forward / (self.weight.shape.numel())
+        # self.D = self.topk_forward / (self.weight.shape.numel())
         
     # Define weight initialization (He et al., 2015)
 
@@ -122,10 +123,10 @@ class TopKastLinear(nn.Module):
     def compute_mask(self, p):
         w = self.weight
         if w.is_sparse:
-            threshold = torch.quantile(w.values().detach().abs(), 1 - p)
+            threshold = torch.quantile(w.values().detach().abs(), p)
             mask = np.where(w.values().detach().abs() >= threshold)
         else:
-            threshold = torch.quantile(w.reshape(-1).detach().abs(), 1 - p)
+            threshold = torch.quantile(w.reshape(-1).detach().abs(), p)
             mask = np.where(w.detach().abs() >= threshold)
         return mask
     
