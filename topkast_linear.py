@@ -73,8 +73,8 @@ class TopKastLinear(nn.Module):
     Sparse adaptation of nn.Linear module with topkast.
     """
     
-    def __init__(self, in_features: int, out_features: int, topk_forward: int, 
-                 topk_backward: int, bias: bool=True, device=None, 
+    def __init__(self, in_features: int, out_features: int, p_forward: float, 
+                 p_backward: float, bias: bool=True, device=None, 
                  dtype=None) -> None:
         
         factory_kwargs = {'device': device, 'dtype': dtype}
@@ -82,13 +82,13 @@ class TopKastLinear(nn.Module):
         
         # Assert that active parameter set in backward pass is at least as 
         # large as in forward pass to allow for it to change
-        assert topk_backward >= topk_forward
+        assert p_forward >= p_backward
             
         # Initialize
         self.in_features = in_features
         self.out_features = out_features
-        self.topk_forward = topk_forward
-        self.topk_backward = topk_backward
+        self.p_forward = p_forward
+        self.p_backward = p_backward
         self.weight = nn.Parameter(
             torch.empty((out_features, in_features), **factory_kwargs))
         if bias:
@@ -107,19 +107,18 @@ class TopKastLinear(nn.Module):
                 self.weight)
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
             torch.nn.init.uniform_(self.bias, -bound, bound)
-        self.indices_forward = self.compute_mask(self.topk_forward)
-        self.indices_backward = self.compute_mask(self.topk_backward)
+        self.indices_forward = self.compute_mask(self.p_forward)
+        self.indices_backward = self.compute_mask(self.p_backward)
         
     # Define masking operations
 
-    def compute_mask(self, topk):
+    def compute_mask(self, p):
         w = self.weight
-        topk_percentage = topk / w.shape.numel()
         if w.is_sparse:
-            threshold = torch.quantile(w.values().detach().abs(), topk_percentage)
+            threshold = torch.quantile(w.values().detach().abs(), 1 - p)
             mask = np.where(w.values().detach().abs() >= threshold)
         else:
-            threshold = torch.quantile(w.reshape(-1).detach().abs(), topk_percentage)
+            threshold = torch.quantile(w.reshape(-1).detach().abs(), 1 - p)
             mask = np.where(w.detach().abs() >= threshold)
         return mask
     
@@ -127,8 +126,8 @@ class TopKastLinear(nn.Module):
     
     def forward(self, inputs, sparse=True):
         
-        self.indices_forward = self.compute_mask(self.topk_forward)
-        self.indices_backward = self.compute_mask(self.topk_backward)
+        self.indices_forward = self.compute_mask(self.p_forward)
+        self.indices_backward = self.compute_mask(self.p_backward)
 
         if sparse:
             if self.training:
