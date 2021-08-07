@@ -24,9 +24,9 @@ class TopKastTraining(torch.autograd.Function):
         
         # Compute output as weighted sum of inputs plus bias term
         output = torch.sparse.addmm(
-            mat=bias.unsqueeze(1), 
-            mat1=weights_used, 
-            mat2=inputs.t()).t()
+            bias.unsqueeze(1), 
+            weights_used, 
+            inputs.t()).t()
         
         # Store values in saved tensors to access during backward()
         ctx.save_for_backward(inputs, weights, bias)
@@ -80,9 +80,15 @@ class TopKastLinear(nn.Module):
         factory_kwargs = {'device': device, 'dtype': dtype}
         super(TopKastLinear, self).__init__()
         
-        # Assert that active parameter set in backward pass is at least as 
-        # large as in forward pass to allow for it to change
+        # Perform basic input checks
+        for i in [in_features, out_features]:
+            assert type(i) == int, 'integer input required'
+            assert i > 0, 'inputs must be > 0'
+        for i in [topk_forward, topk_backward]:
+            assert type(i) == float, 'float input required'
+            assert i > 0 & i <= 1, 'inputs must be a percentage between 0 and 1'
         assert p_forward >= p_backward
+        assert type(bias) == bool
             
         # Initialize
         self.in_features = in_features
@@ -97,6 +103,7 @@ class TopKastLinear(nn.Module):
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
+        self.D = self.topk_forward / (self.weight.shape.numel())
         
     # Define weight initialization (He et al., 2015)
 
@@ -132,10 +139,12 @@ class TopKastLinear(nn.Module):
         if sparse:
             if self.training:
                 # Sparse training
-                output = TopKastTraining.apply(inputs, self.weight, 
-                                               self.bias, 
-                                               self.indices_forward,
-                                               self.indices_backward)
+                output = TopKastTraining.apply(
+                    inputs, 
+                    self.weight, 
+                    self.bias, 
+                    self.indices_forward,
+                    self.indices_backward)
             else:
                 # Sparse forward pass without training
                 with torch.no_grad():
@@ -144,27 +153,32 @@ class TopKastLinear(nn.Module):
                         values=self.weight[self.indices_forward],
                         size=self.weight.shape)
                     output = torch.sparse.addmm(
-                        mat=self.bias.unsqueeze(1), 
-                        mat1=weights, 
-                        mat2=inputs.t()).t()
+                        self.bias.unsqueeze(1), 
+                        weights, 
+                        inputs.t()).t()
         else:
             # Dense training is not possible, only a dense forward pass for 
             # prediction
             with torch.no_grad():
                 output = torch.addmm(
-                    mat=self.bias.unsqueeze(1), 
-                    mat1=self.weight, 
-                    mat2=inputs.t()).t()
+                    self.bias.unsqueeze(1), 
+                    self.weight, 
+                    inputs.t()).t()
         
         return output
     
     # Define field to access sparse weights
-    
-    def sparse_weights(self):
-        weights = torch.sparse_coo_tensor(
-            indices=self.indices_forward, 
-            values=self.weight[self.indices_forward],
-            size=self.weight.shape)
+    def sparse_weights(self, forward = True):
+        if forward:
+            weights = torch.sparse_coo_tensor(
+                indices=self.indices_forward, 
+                values=self.weight[self.indices_forward],
+                size=self.weight.shape)
+        else:
+            weights = torch.sparse_coo_tensor(
+                indices=self.indices_backward, 
+                values=self.weight[self.indices_backward],
+                size=self.weight.shape)
         return weights
 
 # %%
