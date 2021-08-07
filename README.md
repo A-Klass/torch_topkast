@@ -14,6 +14,7 @@
 * In Routine packen, wobei
   * nicht unbedingt in jedem Step das active set angepasst wird (Paper: z. B. alle 100)
   * nach einer exploration phase mit Anpassungen des active set eine refinement phase mit fixen aktiven Gewichten kommt
+* Re-scaling der weights durchführen (analog Dropout); scheint tatsächlich wichtig zu sein
 
 ### Thoughts & Ideas
 * Wir sollten uns einen fancy date aggregator schreiben, damit wir verschiedene loss KPI speichern und uns anschauen können. Sowas wie Angle oder l2 Norm aller Parameter
