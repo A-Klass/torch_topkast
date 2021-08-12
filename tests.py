@@ -7,7 +7,7 @@ import unittest
 #%% Test layer
 
 test_layer = tk.TopKastLinear(
-    in_features=100, 
+    in_features=10, 
     out_features=1, 
     p_forward=0.6,
     p_backward=0.4,

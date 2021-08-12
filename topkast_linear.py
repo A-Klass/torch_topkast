@@ -104,7 +104,7 @@ class TopKastLinear(nn.Module):
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
-        # self.D = self.topk_forward / (self.weight.shape.numel())
+        self.d_fwd = 1 - self.p_forward
         
     # Define weight initialization (He et al., 2015)
 
@@ -117,6 +117,8 @@ class TopKastLinear(nn.Module):
             torch.nn.init.uniform_(self.bias, -bound, bound)
         self.indices_forward = self.compute_mask(self.p_forward)
         self.indices_backward = self.compute_mask(self.p_backward)
+        self.just_backward = self.compute_justbwd(
+            self.p_forward, self.p_backward)
         
     # Define masking operations
 
@@ -130,12 +132,29 @@ class TopKastLinear(nn.Module):
             mask = np.where(w.detach().abs() >= threshold)
         return mask
     
+    # ugly but setdiff of maks does not really work bc 
+    def compute_justbwd(self, p_f, p_b):
+        w = self.weight
+        if w.is_sparse:
+            lower = torch.quantile(w.values().detach().abs(), p_b)
+            upper = torch.quantile(w.values().detach().abs(), p_f)
+            mask = np.where((w.values().detach().abs() >= lower) &
+                            (w.values().detach().abs() < upper))
+        else:
+            lower = torch.quantile(w.reshape(-1).detach().abs(), p_b)
+            upper = torch.quantile(w.reshape(-1).detach().abs(), p_f)
+            mask = np.where((w.detach().abs() >= lower) &
+                            (w.detach().abs() < upper))
+        return mask
+    
     # Define forward pass
     
     def forward(self, inputs, sparse=True):
         
         self.indices_forward = self.compute_mask(self.p_forward)
         self.indices_backward = self.compute_mask(self.p_backward)
+        self.just_backward = self.compute_justbwd(
+            self.p_forward, self.p_backward)
 
         if sparse:
             if self.training:
@@ -168,18 +187,21 @@ class TopKastLinear(nn.Module):
         
         return output
     
-    # Define field to access sparse weights
-    def sparse_weights(self, forward = True):
-        if forward:
-            weights = torch.sparse_coo_tensor(
-                indices=self.indices_forward, 
-                values=self.weight[self.indices_forward],
-                size=self.weight.shape)
-        else:
-            weights = torch.sparse_coo_tensor(
-                indices=self.indices_backward, 
-                values=self.weight[self.indices_backward],
-                size=self.weight.shape)
-        return weights
+    # Define fields to access different weight sets
+    def set_fwd(self):
+        return torch.sparse_coo_tensor(
+            indices=self.indices_forward, 
+            values=self.weight[self.indices_forward],
+            size=self.weight.shape)
+    def set_bwd(self):
+        return torch.sparse_coo_tensor(
+            indices=self.indices_backward, 
+            values=self.weight[self.indices_forward],
+            size=self.weight.shape)
+    def set_just_bwd(self):
+        return torch.sparse_coo_tensor(
+            indices=self.just_backward, 
+            values=self.weight[self.just_backward],
+            size=self.weight.shape)
 
 # %%

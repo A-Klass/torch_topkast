@@ -1,7 +1,6 @@
 # %%
 import torch
 import torch.nn as nn
-import numpy as np
 from topkast_linear import TopKastLinear
 
 
@@ -26,7 +25,8 @@ class TopKastLoss(nn.Module):
                 # If we have more Topk-Layers later we will need a better class system here.
                 if isinstance(child, TopKastLinear):                    
                     l2_norm += torch.linalg.norm(child.sparse_weights())
-                    l2_norm += torch.linalg.norm(child.sparse_weights(forward = False)) / child.D
+                    l2_norm += torch.linalg.norm(
+                        child.sparse_weights(forward=False)) / child.d_fwd
                 else:
                     l2_norm += torch.linalg.norm(child._parameters[name])
         
