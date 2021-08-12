@@ -38,21 +38,4 @@ class TopKastLoss(nn.Module):
 
         return l
 
-# %%
-class net_a_bit_overkill(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.layer_in = TopKastLinear(13, 128, 20, 30)
-        self.activation_1 = nn.ReLU()
-        self.hidden = TopKastLinear(128, 128, 50, 60)
-        self.activation_2 = nn.ReLU()
-        self.layer_out = nn.Linear(128, 1)
-
-    def forward(self, X):
-        return self.layer_out(self.activation_2(self.hidden(self.activation_1(self.layer_in(X)))))
-
-net = net_a_bit_overkill()
-# %%
-loss = TopKastLoss(loss = nn.MSELoss)
-loss(torch.rand(10), torch.rand(10), net)
-# %%
+#%%
