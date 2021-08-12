@@ -74,21 +74,10 @@ layer = tk.TopKastLinear(
             p_backward=0.4,
             bias=True)
 
-layer.set_fwd(), layer.set_bwd(), layer.set_justbwd()
-        
-m = layer.compute_mask(0.6)
-n = layer.compute_mask(0.4)
-
 #%%
 
-setdiff = lambda l1, l2: [x for x in l1 if x not in l2]
-tuples_fwd, tuples_bwd = [], []
-       
-for r, c in zip(m[0], m[1]):
-    tuples_fwd.append([r, c])
-
-for r, c in zip(n[0], n[1]):
-    tuples_bwd.append([r, c])
+layer.set_fwd(), layer.set_bwd(), layer.set_justbwd()
+layer.forward(torch.rand(4, 6))
 
 #%% Unit test: class
 

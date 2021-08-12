@@ -171,8 +171,7 @@ class TopKastLinear(nn.Module):
         
         self.indices_forward = self.compute_mask(self.p_forward)
         self.indices_backward = self.compute_mask(self.p_backward)
-        self.just_backward = self.compute_justbwd(
-            self.p_forward, self.p_backward)
+        self.just_backward = self.compute_justbwd()
 
         if sparse:
             if self.training:
