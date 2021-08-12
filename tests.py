@@ -63,6 +63,68 @@ class TestTopKastLinear(unittest.TestCase):
         self.assertTrue(all(is_identical.flatten()))
         
 #%%
+
+class TestTopKastLoss(unittest.TestCase):
+    
+    def test_penalty_is_l2_for_non_topkast(self):
+        
+        loss_tk = tkl.TopKastLoss(loss=nn.MSELoss)
+        
+        class NN(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer_in = nn.Linear(10, 128)
+                self.activation = nn.ReLU()
+                self.hidden = nn.Linear(128, 1)
+            def forward(self, x):
+                return self.activation(
+                    self.hidden(self.activation(self.layer_in(x))))
+
+        net = NN()
+        penalty = loss_tk.compute_norm_active_set(net)
+        standard_norm = (torch.linalg.norm(net.layer_in.weight) + 
+                         torch.linalg.norm(net.hidden.weight))
+        
+        self.assertAlmostEqual(
+            penalty.detach().numpy().flatten(), 
+            standard_norm.detach().numpy().flatten()) 
+        
+    def test_penalty_is_l2_for_topkast(self):
+        
+        loss_tk = tkl.TopKastLoss(loss=nn.MSELoss)
+        
+        class NN(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer_in = tk.TopKastLinear(10, 128, 0.6, 0.4)
+                self.activation = nn.ReLU()
+                self.hidden = tk.TopKastLinear(128, 1, 0.6, 0.4)
+            def forward(self, x):
+                return self.activation(
+                    self.hidden(self.activation(self.layer_in(x))))
+
+        net = NN()
+        
+        penalty = loss_tk.compute_norm_active_set(net)
+        
+        w_in_fwd, w_h_fwd, w_in_jbwd, w_h_jbwd = [
+            w.to_dense() 
+            for w in [net.layer_in.set_fwd(), net.hidden.set_fwd(),
+                      net.layer_in.set_justbwd(), net.hidden.set_justbwd()]]
+        
+        coeff_in = 1 - net.layer_in.p_forward
+        coeff_h = 1 - net.hidden.p_forward        
+        
+        standard_norm = (
+            torch.linalg.norm(w_in_fwd) + torch.linalg.norm(w_h_fwd) +
+            torch.linalg.norm(w_in_jbwd) / coeff_in + 
+            torch.linalg.norm(w_h_jbwd) / coeff_h)   
+        
+        self.assertAlmostEqual(
+            penalty.detach().numpy().flatten(), 
+            standard_norm.detach().numpy().flatten())   
+
+#%%
         
 if __name__ == '__main__':
     unittest.main()
@@ -75,6 +137,23 @@ layer = tk.TopKastLinear(
             p_forward=0.6,
             p_backward=0.4,
             bias=True)
+
+#%%
+
+loss_tk = tkl.TopKastLoss(loss=nn.MSELoss)
+        
+class LinearNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.layer_in = tk.TopKastLinear(10, 128, 0.6, 0.4)
+        self.activation = nn.ReLU()
+        self.hidden = tk.TopKastLinear(128, 1, 0.6, 0.4)
+    def forward(self, x):
+        return self.activation(
+            self.hidden(self.activation(self.layer_in(x))))
+
+net = LinearNN()
+penalty = loss_tk.compute_norm_active_set(net)
 
 #%%
 

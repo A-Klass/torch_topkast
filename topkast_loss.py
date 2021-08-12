@@ -37,9 +37,11 @@ class TopKastLoss(nn.Module):
                 # better class system here.
                 
                 if isinstance(child, TopKastLinear):                    
-                    penalty += torch.linalg.norm(child.set_fwd())
                     penalty += torch.linalg.norm(
-                        child.set_justbwd() / (1 - child.p_forward))
+                        child.set_fwd().coalesce().values())
+                    penalty += torch.linalg.norm(
+                        (child.set_justbwd().coalesce().values() / 
+                         (1 - child.p_forward)))
                 else:
                     penalty += torch.linalg.norm(child._parameters[name])
         
