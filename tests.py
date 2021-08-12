@@ -1,7 +1,9 @@
 #%% Imports
 
 import topkast_linear as tk
+import topkast_loss as tkl
 import torch
+import torch.nn as nn
 import unittest
 
 #%%
@@ -159,20 +161,22 @@ layer.forward(torch.rand(4, 6))
 # test that active set actually changes over iterations
 
 # %%
-# class net_a_bit_overkill(nn.Module):
-#     def __init__(self):
-#         super().__init__()
-#         self.layer_in = TopKastLinear(13, 128, 20, 30)
-#         self.activation_1 = nn.ReLU()
-#         self.hidden = TopKastLinear(128, 128, 50, 60)
-#         self.activation_2 = nn.ReLU()
-#         self.layer_out = nn.Linear(128, 1)
+class net_a_bit_overkill(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.layer_in = tk.TopKastLinear(13, 128, 0.6, 0.4)
+        self.activation_1 = nn.ReLU()
+        self.hidden = tk.TopKastLinear(128, 128, 0.6, 0.4)
+        self.activation_2 = nn.ReLU()
+        self.layer_out = nn.Linear(128, 1)
 
-#     def forward(self, X):
-#         return self.layer_out(self.activation_2(self.hidden(self.activation_1(self.layer_in(X)))))
+    def forward(self, X):
+        return self.layer_out(
+            self.activation_2(self.hidden(
+                self.activation_1(self.layer_in(X)))))
 
-# net = net_a_bit_overkill()
-# # %%
-# loss = TopKastLoss(loss = nn.MSELoss)
-# loss(torch.rand(10), torch.rand(10), net)
+net = net_a_bit_overkill()
+# %%
+loss = tkl.TopKastLoss(loss = nn.MSELoss)
+loss(torch.rand(10), torch.rand(10), net)
 # %%

@@ -72,7 +72,7 @@ class TopKastTraining(torch.autograd.Function):
         # Compute grad wrt bias if necessary (and bias is specified)
         
         if bias is not None and ctx.needs_input_grad[2]:
-            grad_bias = grad_output.sum(0).to_sparse()
+            grad_bias = grad_output.sum(0)#.to_sparse()
 
         return grad_inputs, grad_weights, grad_bias, None, None
 
