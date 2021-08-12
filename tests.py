@@ -1,96 +1,200 @@
 #%% Imports
 
+import numpy as np
 import topkast_linear as tk
+import topkast_loss as tkl
 import torch
+import torch.nn as nn
 import unittest
 
-#%% Test layer
+#%%
 
-test_layer = tk.TopKastLinear(
-    in_features=100, 
-    out_features=1, 
-    p_forward=0.6,
-    p_backward=0.4,
-    bias=True)
-
-#%% Unit test: class
-
-class TestClass(unittest.TestCase):
-    def test_is_topklinear(self):
-        self.assertIsInstance(test_layer, tk.TopKastLinear)
+class TestTopKastLinear(unittest.TestCase):
+    
+    def test_weights_are_initialized_nonzero(self):
         
-#%% Unit test: arguments
+        layer_tkl = tk.TopKastLinear(
+            in_features=1000, 
+            out_features=10, 
+            p_forward=0.6,
+            p_backward=0.4,
+            bias=True)
+        
+        layer_tkl.reset_parameters()
+        
+        for param in [layer_tkl.weight, layer_tkl.bias]:
+            self.assertIsInstance(param, torch.nn.parameter.Parameter)
+            sum_elements = param.detach().numpy().flatten().sum()
+            self.assertNotAlmostEqual(sum_elements, 0)
+            
+    def test_weights_have_grads(self):
+        
+        layer_tkl = tk.TopKastLinear(
+            in_features=1000, 
+            out_features=10, 
+            p_forward=0.6,
+            p_backward=0.4,
+            bias=True)
+        
+        self.assertTrue(layer_tkl.weight.requires_grad)
+        self.assertTrue(layer_tkl.bias.requires_grad)
+            
+    def test_masking_achieves_right_sparsity(self):
+        
+        layer_tkl = tk.TopKastLinear(
+            in_features=1000, 
+            out_features=10, 
+            p_forward=0.6,
+            p_backward=0.4,
+            bias=True)
+        
+        m = layer_tkl.compute_mask(layer_tkl.p_forward)
+        # TODO find better way to define tol
+        tol = layer_tkl.p_forward * 0.01
+        
+        self.assertGreaterEqual(
+            1 - (len(m[0]) / layer_tkl.weight.numel()), 
+            layer_tkl.p_forward - tol)
+        self.assertLessEqual(
+            1 - (len(m[0]) / layer_tkl.weight.numel()),
+            layer_tkl.p_forward + tol)   
+        
+    def test_justbwd_is_diff_between_bwd_and_fwd(self):
+        
+        layer_tkl = tk.TopKastLinear(
+            in_features=1000, 
+            out_features=10, 
+            p_forward=0.6,
+            p_backward=0.4,
+            bias=True)       
+        
+        fwd = layer_tkl.set_fwd().to_dense()
+        bwd = layer_tkl.set_bwd().to_dense()
+        justbwd = layer_tkl.set_justbwd().to_dense()
+        is_identical = (justbwd == bwd - fwd)
+        
+        self.assertTrue(all(is_identical.flatten()))
+        
+#%%
 
-# really necessary? this could go on forever........
-
-class TestArgs(unittest.TestCase):
-    def test_count_infeatures(self):
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100.5, 1, 0.6, 0.4)
-        self.assertRaises(AssertionError, tk.TopKastLinear, -100, 1, 0.6, 0.4)
-    def test_count_outfeatures(self):
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 0.6, 0.4)
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 0, 0.6, 0.4)
-    def test_count_topkforward(self):
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 1.6, 0.4)
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, -0.6, 0.4)
-    def test_count_topkbackward(self):
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 0.6, 1.4)
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1.5, 0.6, -0.4)
-    def test_fwsparsity_geq_bwsparsity(self):
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1, 0.6, 0.8)
-    def test_bool_bias(self):
-        self.assertRaises(AssertionError, tk.TopKastLinear, 100, 1, 0.6, 0.4, 1)
+class TestTopKastLoss(unittest.TestCase):
     
-#%% Unit test: bias & weights
+    def test_penalty_is_l2_for_non_topkast(self):
+        
+        class NN(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer_in = nn.Linear(10, 128)
+                self.activation = nn.ReLU()
+                self.hidden = nn.Linear(128, 1)
+            def forward(self, x):
+                return self.activation(
+                    self.hidden(self.activation(self.layer_in(x))))
 
-class TestWeightsBias(unittest.TestCase):
-    def test_has_right_size_weights(self):
-        self.assertTrue(test_layer.weight.numel() == test_layer.in_features)
-    def test_has_right_size_bias(self):    
-        self.assertTrue(test_layer.bias.numel() == 1)
-    def test_has_grad_weights(self):
-        self.assertTrue(test_layer.weight.requires_grad)
-    def test_has_grad_bias(self):
-        self.assertTrue(test_layer.bias.requires_grad)  
-    
-#%% Unit test: forward sparsity
+        net = NN()
+        loss_tk = tkl.TopKastLoss(loss=nn.MSELoss)
+        
+        penalty = loss_tk.compute_norm_active_set(net)
+        standard_norm = (torch.linalg.norm(net.layer_in.weight) + 
+                         torch.linalg.norm(net.hidden.weight))
+        
+        self.assertEqual(
+            np.round(penalty.detach().numpy()), 
+            np.round(standard_norm.detach().numpy())) 
+        
+    def test_penalty_is_l2_for_topkast(self):
+        
+        class NN(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer_in = tk.TopKastLinear(10, 128, 0.6, 0.4)
+                self.activation = nn.ReLU()
+                self.hidden = tk.TopKastLinear(128, 1, 0.6, 0.4)
+            def forward(self, x):
+                return self.activation(
+                    self.hidden(self.activation(self.layer_in(x))))
 
-class TestSparsity(unittest.TestCase):
-    def test_has_right_forward_sparsity(self):
-        d = test_layer.weight.numel()
-        s = test_layer.sparse_weights().coalesce().values().numel()
-        self.assertAlmostEqual(s, (1 - test_layer.p_forward) * d)
-    def test_has_right_backward_sparsity(self):
-        d = test_layer.weight.numel()
-        s = test_layer.sparse_weights(forward=False).coalesce().values().numel()
-        self.assertAlmostEqual(s, (1 - test_layer.p_backward) * d)
-    
-#%% Unit test: output
+        net = NN()
+        loss_tk = tkl.TopKastLoss(loss=nn.MSELoss)
+        
+        penalty = loss_tk.compute_norm_active_set(net)
+        
+        w_in_fwd, w_h_fwd, w_in_jbwd, w_h_jbwd = [
+            w.to_dense() 
+            for w in [net.layer_in.set_fwd(), net.hidden.set_fwd(),
+                      net.layer_in.set_justbwd(), net.hidden.set_justbwd()]]
+        
+        coeff_in = 1 - net.layer_in.p_forward
+        coeff_h = 1 - net.hidden.p_forward        
+        
+        standard_norm = (
+            torch.linalg.norm(w_in_fwd) + torch.linalg.norm(w_h_fwd) +
+            torch.linalg.norm(w_in_jbwd) / coeff_in + 
+            torch.linalg.norm(w_h_jbwd) / coeff_h)   
+        
+        self.assertEqual(
+            np.round(penalty.detach().numpy()), 
+            np.round(standard_norm.detach().numpy()))
+        
+    def loss_is_differentiable(self):
+        
+        class NN(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer_in = tk.TopKastLinear(10, 128, 0.6, 0.4)
+                self.activation = nn.ReLU()
+                self.hidden = tk.Linear(128, 1)
+            def forward(self, x):
+                return self.activation(
+                    self.hidden(self.activation(self.layer_in(x))))
+            
+        net = nn()
+        loss_tk = tkl.TopKastLoss(loss=nn.MSELoss)
+            
+        l = loss_tk(torch.rand(10), torch.rand(10), net)
+        l.sum().backward()
+        
+        for i in net.children():
 
-class TestOutput(unittest.TestCase):
-    def test_has_right_size(self):
-        x = torch.rand(1, test_layer.in_features)
-        self.assertTrue(test_layer(x).numel() == test_layer.out_features)
+            self.assertEqual(i.weight.grad.shape[0], i.in_features)
+            self.assertEqual(i.weight.grad.shape[1], i.out_features)
+            self.assertNotNone(i.bias.grad)       
+            
+    def gradient_has_right_sparsity(self):
+        
+        class NN(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer_in = tk.TopKastLinear(10, 128, 0.6, 0.4)
+                self.activation = nn.ReLU()
+                self.hidden = tk.Linear(128, 1)
+            def forward(self, x):
+                return self.activation(
+                    self.hidden(self.activation(self.layer_in(x))))
+            
+        net = nn()
+        loss_tk = tkl.TopKastLoss(loss=nn.MSELoss)
+        
+        l = loss_tk(torch.rand(10), torch.rand(10), net)
+        l.sum().backward()
+        
+        is_zero = (net.layer_in.weight.grad == 0.)
+        # TODO find better way to define tol
+        tol = net.layer_in.p_backward * 0.01
+        
+        self.assertGreaterEqual(
+            is_zero.sum() / is_zero.numel(),
+            torch.tensor(net.layer_in.p_backward - tol))
+        self.assertLessEqual(
+            is_zero.sum() / is_zero.numel(),
+            torch.tensor(net.layer_in.p_backward + tol))
+
+#%%
         
 if __name__ == '__main__':
     unittest.main()
 
-#%%
+#%% 
 
-# layer1 = TopkLinear(5, 4, 1, 2)
-# layer2 = TopkLinear(4, 1, 1, 2)
-# x = torch.rand((3, 5))
-# y = torch.tensor([objective(x_) for x_ in x])
-# # layer.training = False
-# # layer(x, sparse = False)
-# y_hat = layer2(layer1(x))
-# # loss = TopKastLoss(loss, net, alpha)
-# # l = loss(y_hat, y)
-# # %%
-# l.sum().backward()
-# # %%
-# layer1.weight.grad, layer2.weight.grad
-
-#%% TODO
-
+# TODO
 # test that active set actually changes over iterations
