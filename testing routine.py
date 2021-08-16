@@ -6,6 +6,7 @@ import numpy as np
 import copy
 import torch.nn as nn
 from topkast_linear import TopKastLinear
+from topkast_loss import TopKastLoss
 
 
 class boston_dataset(Dataset):
@@ -79,18 +80,21 @@ def train(net, num_epochs, loss, optimizer, batch_size, boston = datasets.load_b
 class TopKastNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.layer_in = TopKastLinear(13, 128, 800, 1000)
+        self.layer_in = TopKastLinear(13, 128, 
+                                      p_forward=0.7, p_backward=0.3)
         self.activation_1 = nn.ReLU()
-        self.hidden = TopKastLinear(128, 128, 8000, 10000)
+        self.hidden = TopKastLinear(128, 128,
+                                    p_forward=0.7, p_backward=0.3)
         self.activation_2 = nn.ReLU()
-        self.layer_out = TopKastLinear(128, 1, 64, 100)
+        self.layer_out = TopKastLinear(128, 1,
+                                       p_forward=0.7, p_backward=0.3)
 
     def forward(self, X):
         return self.layer_out(self.activation_2(self.hidden(self.activation_1(self.layer_in(X)))))
 
 #%%
 net = TopKastNet()
-loss = nn.MSELoss()
+loss = TopKastLoss(loss = nn.MSELoss, net = net)
 optimizer = torch.optim.SparseAdam(net.parameters())
 
 #%%
@@ -98,7 +102,7 @@ kast_net, val_loss, train_loss, best_epoch, test_loss = train(net = net,
       num_epochs = 10000, 
       loss = loss,
       optimizer = optimizer, 
-      batch_size = 32,
+      batch_size = 128,
       patience = 20)
 
 
