@@ -90,7 +90,7 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
     
     test_loss = loss(
         net(test_dataset[:][0].float(), sparse=False), 
-        test_dataset[:][1].float())
+        test_dataset[:][1].float().reshape(-1, 1))
 
     return best_net, losses_validation[1:(best_epoch + patience)], \
         losses_train[1:(best_epoch + patience)], best_epoch, test_loss
