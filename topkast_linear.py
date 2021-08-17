@@ -192,10 +192,10 @@ class TopKastLinear(nn.Module):
         self.just_backward = self.compute_justbwd()
         
         self.sparse_weights = torch.sparse_coo_tensor(
-                        indices=self.indices_forward, 
-                        values=self.weight[self.indices_forward],
-                        size=self.weight.shape,
-                        requires_grad=True)
+            indices=self.indices_forward, 
+            values=self.weight[self.indices_forward],
+            size=self.weight.shape,
+            requires_grad=True)
     
     # Define fields to access different weight sets
     
