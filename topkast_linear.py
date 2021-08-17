@@ -182,7 +182,6 @@ class TopKastLinear(nn.Module):
                 output = TopKastTraining.apply(
                     inputs, 
                     self.sparse_weights, 
-                    # self.weight,
                     self.bias,
                     self.indices_backward)
             else:
