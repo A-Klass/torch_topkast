@@ -32,11 +32,9 @@ class TopKastLoss(nn.Module):
             # For a common layer, all weights are L2-penalized.
                 
             if isinstance(child, TopKastLinear):                    
-                penalty += torch.linalg.norm(
-                    child.set_fwd().coalesce().values())
-                penalty += torch.linalg.norm(
-                    (child.set_justbwd().coalesce().values() / 
-                     (1 - child.p_forward)))
+                penalty += torch.linalg.norm(child.set_fwd)
+                penalty += torch.linalg.norm((child.set_justbwd / 
+                                              (1 - child.p_forward)))
             else:
                 for name in child._parameters.keys():
                     if name != 'weight': continue

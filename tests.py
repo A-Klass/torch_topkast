@@ -58,21 +58,21 @@ class TestTopKastLinear(unittest.TestCase):
             1 - (len(m[0]) / layer_tkl.weight.numel()),
             layer_tkl.p_forward + tol)   
         
-    def test_justbwd_is_diff_between_bwd_and_fwd(self):
+    # def test_justbwd_is_diff_between_bwd_and_fwd(self):
         
-        layer_tkl = tk.TopKastLinear(
-            in_features=1000, 
-            out_features=10, 
-            p_forward=0.6,
-            p_backward=0.4,
-            bias=True)       
+    #     layer_tkl = tk.TopKastLinear(
+    #         in_features=1000, 
+    #         out_features=10, 
+    #         p_forward=0.6,
+    #         p_backward=0.4,
+    #         bias=True)       
         
-        fwd = layer_tkl.set_fwd().to_dense()
-        bwd = layer_tkl.set_bwd().to_dense()
-        justbwd = layer_tkl.set_justbwd().to_dense()
-        is_identical = (justbwd == bwd - fwd)
+    #     fwd = layer_tkl.set_fwd().to_dense()
+    #     bwd = layer_tkl.set_bwd().to_dense()
+    #     justbwd = layer_tkl.set_justbwd().to_dense()
+    #     is_identical = (justbwd == bwd - fwd)
         
-        self.assertTrue(all(is_identical.flatten()))
+    #     self.assertTrue(all(is_identical.flatten()))
         
 #%%
 
@@ -101,39 +101,39 @@ class TestTopKastLoss(unittest.TestCase):
             np.round(penalty.detach().numpy()), 
             np.round(standard_norm.detach().numpy())) 
         
-    def test_penalty_is_l2_for_topkast(self):
+    # def test_penalty_is_l2_for_topkast(self):
         
-        class NN(nn.Module):
-            def __init__(self):
-                super().__init__()
-                self.layer_in = tk.TopKastLinear(10, 128, 0.6, 0.4)
-                self.activation = nn.ReLU()
-                self.hidden = tk.TopKastLinear(128, 1, 0.6, 0.4)
-            def forward(self, x):
-                return self.activation(
-                    self.hidden(self.activation(self.layer_in(x))))
+    #     class NN(nn.Module):
+    #         def __init__(self):
+    #             super().__init__()
+    #             self.layer_in = tk.TopKastLinear(10, 128, 0.6, 0.4)
+    #             self.activation = nn.ReLU()
+    #             self.hidden = tk.TopKastLinear(128, 1, 0.6, 0.4)
+    #         def forward(self, x):
+    #             return self.activation(
+    #                 self.hidden(self.activation(self.layer_in(x))))
 
-        net = NN()
-        loss_tk = tkl.TopKastLoss(loss=nn.MSELoss, net=net)
+    #     net = NN()
+    #     loss_tk = tkl.TopKastLoss(loss=nn.MSELoss, net=net)
         
-        penalty = loss_tk.compute_norm_active_set()
+    #     penalty = loss_tk.compute_norm_active_set()
         
-        w_in_fwd, w_h_fwd, w_in_jbwd, w_h_jbwd = [
-            w.to_dense() 
-            for w in [net.layer_in.set_fwd(), net.hidden.set_fwd(),
-                      net.layer_in.set_justbwd(), net.hidden.set_justbwd()]]
+    #     w_in_fwd, w_h_fwd, w_in_jbwd, w_h_jbwd = [
+    #         w.to_dense() 
+    #         for w in [net.layer_in.set_fwd(), net.hidden.set_fwd(),
+    #                   net.layer_in.set_justbwd(), net.hidden.set_justbwd()]]
         
-        coeff_in = 1 - net.layer_in.p_forward
-        coeff_h = 1 - net.hidden.p_forward        
+    #     coeff_in = 1 - net.layer_in.p_forward
+    #     coeff_h = 1 - net.hidden.p_forward        
         
-        standard_norm = (
-            torch.linalg.norm(w_in_fwd) + torch.linalg.norm(w_h_fwd) +
-            torch.linalg.norm(w_in_jbwd) / coeff_in + 
-            torch.linalg.norm(w_h_jbwd) / coeff_h)   
+    #     standard_norm = (
+    #         torch.linalg.norm(w_in_fwd) + torch.linalg.norm(w_h_fwd) +
+    #         torch.linalg.norm(w_in_jbwd) / coeff_in + 
+    #         torch.linalg.norm(w_h_jbwd) / coeff_h)   
         
-        self.assertEqual(
-            np.round(penalty.detach().numpy()), 
-            np.round(standard_norm.detach().numpy()))
+    #     self.assertEqual(
+    #         np.round(penalty.detach().numpy()), 
+    #         np.round(standard_norm.detach().numpy()))
         
 #     def loss_is_differentiable(self):
         

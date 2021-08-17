@@ -113,6 +113,8 @@ class TopKastLinear(nn.Module):
             
         self.reset_parameters()
         self.update_active_param_set()
+        self.set_fwd = self.weight[self.indices_forward]
+        self.set_bwd = self.weight[self.indices_backward]
         
     # Define weight initialization (He et al., 2015)
 
@@ -199,25 +201,9 @@ class TopKastLinear(nn.Module):
             values=self.weight[self.indices_forward],
             size=self.weight.shape,
             requires_grad=True)
-    
-    # Define fields to access different weight sets
-    
-    def set_fwd(self):
-        return torch.sparse_coo_tensor(
-            indices=self.indices_forward, 
-            values=self.weight[self.indices_forward],
-            size=self.weight.shape)
-    
-    def set_bwd(self):
-        return torch.sparse_coo_tensor(
-            indices=self.indices_backward, 
-            values=self.weight[self.indices_backward],
-            size=self.weight.shape)
-    
-    def set_justbwd(self):
-        return torch.sparse_coo_tensor(
-            indices=self.just_backward, 
-            values=self.weight[self.just_backward],
-            size=self.weight.shape)
-
+        
+        self.set_fwd = self.weight[self.indices_forward]
+        self.set_bwd = self.weight[self.indices_backward]
+        self.set_justbwd = self.weight[self.just_backward]
+        
 # %%
