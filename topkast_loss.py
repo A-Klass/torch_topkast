@@ -24,26 +24,22 @@ class TopKastLoss(nn.Module):
         penalty = torch.tensor(0.)
         
         for child in self.net.children():
-            
-            # Go through all the parameters of the layers
-            
-            for name in child._parameters.keys():
+                         
+            # If the loop encounters a TopKastLinear layer, it stops to compute 
+            # the TopKast-specific penalty.
+            # TODO: adjust if further TopKast layers are added (proper class
+            # system)
+            # For a common layer, all weights are L2-penalized.
                 
-                # Only continue if it's weights. Biases are skipped.
-                
-                if name != 'weight': continue
-            
-                # If it's a TopKastLinear layer it gets stopped. This is hard 
-                # coded. If we have more Topk-Layers later we will need a 
-                # better class system here.
-                
-                if isinstance(child, TopKastLinear):                    
-                    penalty += torch.linalg.norm(
-                        child.set_fwd().coalesce().values())
-                    penalty += torch.linalg.norm(
-                        (child.set_justbwd().coalesce().values() / 
-                         (1 - child.p_forward)))
-                else:
+            if isinstance(child, TopKastLinear):                    
+                penalty += torch.linalg.norm(
+                    child.set_fwd().coalesce().values())
+                penalty += torch.linalg.norm(
+                    (child.set_justbwd().coalesce().values() / 
+                     (1 - child.p_forward)))
+            else:
+                for name in child._parameters.keys():
+                    if name != 'weight': continue
                     penalty += torch.linalg.norm(child._parameters[name])
         
         return penalty
