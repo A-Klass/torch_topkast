@@ -29,17 +29,16 @@ class boston_dataset(Dataset):
     
 #%%    
 def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer, 
-          batch_size, boston=datasets.load_boston(), split=[.7, .2, .1], 
-          patience=5):
+          batch_size, split=[.7, .2, .1], patience=5):
 
     if len(split) < 3:
         split.append(0)
 
     train_count, validation_count, test_count = np.round(
-        np.multiply(506, [.7, .2, .1])).astype(int)
+        np.multiply(boston_dataset().__len__(), [.7, .2, .1])).astype(int)
     train_dataset, validation_dataset, test_dataset = \
     torch.utils.data.random_split(
-        boston_dataset(), (train_count, validation_count,test_count), 
+        boston_dataset(), (train_count, validation_count, test_count), 
         generator=torch.Generator().manual_seed(42))
 
     train_dataset = DataLoader(
@@ -67,7 +66,7 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
             y_hat = net(X)
             optimizer.zero_grad()
             loss_epoch = loss(y_hat, y)
-            loss_epoch.backward()
+            loss_epoch.sum().backward()
             optimizer.step()
             losses_train[epoch] += loss_epoch / len(y)
             
@@ -100,38 +99,36 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
 class TopKastNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.layer_in = TopKastLinear(13, 128, 
-                                      p_forward=0.6, p_backward=0.4)
-        # self.layer_in = nn.Linear(13, 128)
+        self.layer_in = TopKastLinear(
+            13, 16, p_forward=0.4, p_backward=0.3)
         self.activation_1 = nn.ReLU()
-        self.hidden = nn.Linear(128, 1)
-        # self.hidden = TopKastLinear(128, 1,
-        #                             p_forward=0.1, p_backward=0.05)
-        # self.layer_out = TopKastLinear(128, 1,
-        #                                p_forward=0.7, p_backward=0.3)
+        self.hidden = TopKastLinear(
+            16, 64, p_forward=0.4, p_backward=0.3)
+        self.layer_out = TopKastLinear(
+            64, 1,
+            p_forward=0.4, p_backward=0.3)
 
     def forward(self, X, sparse=True):
-        y_1 = self.layer_in(self.activation_1(X), sparse=sparse)
-        # y_2 = self.hidden(self.activation_2(y_1), sparse = sparse)
-        # y_3 = self.layer_out(y_2, sparse = sparse)
+        y = self.layer_in(X, sparse=sparse)
+        y = self.hidden(self.activation_1(y), sparse=sparse)
         
-        return self.hidden(y_1)
+        return self.layer_out(self.activation_1 (y), sparse=sparse)
 
 #%%
 net = TopKastNet()
 loss = TopKastLoss(loss = nn.MSELoss, net = net)
-optimizer = torch.optim.Adam(net.parameters(), lr=0.1)
+optimizer = torch.optim.Adam(net.parameters(), lr=0.01)
 
 #%%
 kast_net, val_loss, train_loss, best_epoch, test_loss = train(
     net=net, 
-    num_epochs=100, 
-    num_epochs_explore=30,
+    num_epochs=1000, 
+    num_epochs_explore=300,
     update_every=10,
     loss=loss,
     optimizer=optimizer, 
     batch_size=128,
-    patience=100)
+    patience=10)
 
 
 # %%
