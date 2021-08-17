@@ -62,7 +62,7 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
                         layer.update_active_param_set() 
         for X, y in train_dataset:
             X = X.float()
-            y = y.float().reshape((-1, 1))
+            y = y.float().reshape(-1, 1)
             y_hat = net(X)
             optimizer.zero_grad()
             loss_epoch = loss(y_hat, y)
@@ -72,7 +72,7 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
             
         losses_validation[epoch] = loss(
             net(validation_dataset[:][0].float(), sparse=False), 
-            validation_dataset[:][1].float())
+            validation_dataset[:][1].float().reshape(-1, 1))
         if (epoch + 1) % 100 == 0:
             print(f'epoch {epoch + 1}, loss {losses_validation[epoch]:f}') 
         
@@ -100,13 +100,13 @@ class TopKastNet(nn.Module):
     def __init__(self):
         super().__init__()
         self.layer_in = TopKastLinear(
-            13, 16, p_forward=0.4, p_backward=0.3)
+            13, 16, p_forward=0.2, p_backward=0.1)
         self.activation_1 = nn.ReLU()
         self.hidden = TopKastLinear(
-            16, 64, p_forward=0.4, p_backward=0.3)
+            16, 128, p_forward=0.5, p_backward=0.4)
         self.layer_out = TopKastLinear(
-            64, 1,
-            p_forward=0.4, p_backward=0.3)
+            128, 1,
+            p_forward=0.3, p_backward=0.2)
 
     def forward(self, X, sparse=True):
         y = self.layer_in(X, sparse=sparse)
@@ -116,20 +116,19 @@ class TopKastNet(nn.Module):
 
 #%%
 net = TopKastNet()
-loss = TopKastLoss(loss = nn.MSELoss, net = net)
-optimizer = torch.optim.Adam(net.parameters(), lr=0.01)
+loss = TopKastLoss(loss=nn.MSELoss, net=net, alpha=0.4)
+optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
 
 #%%
 kast_net, val_loss, train_loss, best_epoch, test_loss = train(
     net=net, 
-    num_epochs=1000, 
-    num_epochs_explore=300,
-    update_every=100,
+    num_epochs=5000, 
+    num_epochs_explore=500,
+    update_every=20,
     loss=loss,
     optimizer=optimizer, 
     batch_size=128,
-    patience=10)
-
+    patience=20)
 
 # %%
 plt.plot(range(len(val_loss)), val_loss, color = "red")

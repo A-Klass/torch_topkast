@@ -11,10 +11,12 @@ class TopKastLoss(nn.Module):
     L2-norm of all active(!) parameters. Goes through all the layers of the net 
     and looks for TopkLinear layers and only takes the appropriate weights.
     """
-    def __init__(self, loss, net) -> None:
+    def __init__(self, loss, net, alpha=1) -> None:
         super(TopKastLoss, self).__init__()
         self.loss = loss()
         self.net = net
+        assert alpha >= 0 and alpha <= 1
+        self.alpha = alpha
     
     def compute_norm_active_set(self):
         """
@@ -33,8 +35,8 @@ class TopKastLoss(nn.Module):
                 
             if isinstance(child, TopKastLinear):                    
                 penalty += torch.linalg.norm(child.set_fwd)
-                penalty += torch.linalg.norm((child.set_justbwd / 
-                                              (1 - child.p_forward)))
+                penalty += (torch.linalg.norm(child.set_justbwd) / 
+                            (1 - child.p_forward))
             else:
                 for name in child._parameters.keys():
                     if name != 'weight': continue
@@ -45,7 +47,7 @@ class TopKastLoss(nn.Module):
     def forward(self, y_hat, y):
         
         l = self.loss(y_hat, y) 
-        l += self.compute_norm_active_set()
+        l += self.alpha * self.compute_norm_active_set()
 
         return l
 
