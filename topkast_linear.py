@@ -102,8 +102,6 @@ class TopKastLinear(nn.Module):
         self.p_forward, self.p_backward = p_forward, p_backward
         self.weight = torch.empty(
             (out_features, in_features), **factory_kwargs)
-        # self.sparse_weights = nn.Parameter(
-        #     torch.empty((out_features, in_features), **factory_kwargs))
         
         if bias:
             self.bias = nn.Parameter(
