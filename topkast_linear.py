@@ -14,20 +14,13 @@ class TopKastTraining(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, inputs, weights, bias, indices_forward, indices_backward):
-        
-        # Compute sparse weight tensor
-        
-        weights_used = torch.sparse_coo_tensor(
-            indices=indices_forward, 
-            values=weights[indices_forward], 
-            size=weights.shape)
+    def forward(ctx, inputs, sparse_weights, weights, bias, indices_backward):
         
         # Compute output as weighted sum of inputs plus bias term
         
         output = torch.sparse.addmm(
             bias.unsqueeze(1), 
-            weights_used, 
+            sparse_weights, 
             inputs.t()).t()
         
         # Store values in saved tensors to access during backward()
@@ -72,9 +65,9 @@ class TopKastTraining(torch.autograd.Function):
         # Compute grad wrt bias if necessary (and bias is specified)
         
         if bias is not None and ctx.needs_input_grad[2]:
-            grad_bias = grad_output.sum(0)#.to_sparse()
+            grad_bias = grad_output.sum(0)
 
-        return grad_inputs, grad_weights, grad_bias, None, None
+        return grad_inputs, grad_weights, None, grad_bias, None
 
 #%% TopKast linear layer
 
@@ -106,8 +99,8 @@ class TopKastLinear(nn.Module):
         
         self.in_features, self.out_features = in_features, out_features
         self.p_forward, self.p_backward = p_forward, p_backward
-        self.weight = nn.Parameter(
-            torch.empty((out_features, in_features), **factory_kwargs))
+        self.weight = torch.empty((out_features, in_features),
+                                  **factory_kwargs)
         
         if bias:
             self.bias = nn.Parameter(
@@ -116,9 +109,7 @@ class TopKastLinear(nn.Module):
             self.register_parameter('bias', None)
             
         self.reset_parameters()
-        self.indices_forward = self.compute_mask(self.p_forward)
-        self.indices_backward = self.compute_mask(self.p_backward)
-        self.just_backward = self.compute_justbwd()     
+        self.update_active_param_set()
         
     # Define weight initialization (He et al., 2015)
 
@@ -168,30 +159,21 @@ class TopKastLinear(nn.Module):
     # Define forward pass
     
     def forward(self, inputs, sparse=True):
-        
-        self.indices_forward = self.compute_mask(self.p_forward)
-        self.indices_backward = self.compute_mask(self.p_backward)
-        self.just_backward = self.compute_justbwd()
-
         if sparse:
             if self.training:
                 # Sparse training
                 output = TopKastTraining.apply(
                     inputs, 
-                    self.weight, 
-                    self.bias, 
-                    self.indices_forward,
+                    self.sparse_weights, 
+                    self.weight,
+                    self.bias,
                     self.indices_backward)
             else:
                 # Sparse forward pass without training
                 with torch.no_grad():
-                    weights = torch.sparse_coo_tensor(
-                        indices=self.indices_forward, 
-                        values=self.weight[self.indices_forward],
-                        size=self.weight.shape)
                     output = torch.sparse.addmm(
                         self.bias.unsqueeze(1), 
-                        weights, 
+                        self.sparse_weights, 
                         inputs.t()).t()
         else:
             # Dense training is not possible, only a dense forward pass for 
@@ -203,6 +185,17 @@ class TopKastLinear(nn.Module):
                     inputs.t()).t()
         
         return output
+    
+    def update_active_param_set(self) -> None:
+        self.indices_forward = self.compute_mask(self.p_forward)
+        self.indices_backward = self.compute_mask(self.p_backward)
+        self.just_backward = self.compute_justbwd()
+        
+        self.sparse_weights = torch.sparse_coo_tensor(
+            indices=self.indices_forward, 
+            values=self.weight[self.indices_forward],
+            size=self.weight.shape,
+            requires_grad=True)
     
     # Define fields to access different weight sets
     
