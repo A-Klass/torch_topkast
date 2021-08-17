@@ -14,7 +14,7 @@ class TopKastTraining(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, inputs, sparse_weights, weights, bias, indices_backward):
+    def forward(ctx, inputs, sparse_weights, bias, indices_backward):
         
         # Compute output as weighted sum of inputs plus bias term
         
@@ -25,7 +25,7 @@ class TopKastTraining(torch.autograd.Function):
         
         # Store values in saved tensors to access during backward()
         
-        ctx.save_for_backward(inputs, weights, bias)
+        ctx.save_for_backward(inputs, sparse_weights, bias)
         
         # Store backward indices in context
         
@@ -38,7 +38,7 @@ class TopKastTraining(torch.autograd.Function):
 
         # Get saved tensors
         
-        inputs, weights, bias = ctx.saved_tensors
+        inputs, sparse_weights, bias = ctx.saved_tensors
         
         # Initialize gradients
         
@@ -51,7 +51,8 @@ class TopKastTraining(torch.autograd.Function):
         # Compute grad wrt inputs if necessary
         
         if ctx.needs_input_grad[0]:
-            grad_inputs = grad_output.mm(weights)
+            grad_inputs = grad_output.mm(sparse_weights.to_dense())
+            # grad_inputs = torch.sparse.mm(sparse_weights, grad_output.t()).t()
         
         # Compute grad wrt weights if necessary
         
@@ -67,7 +68,7 @@ class TopKastTraining(torch.autograd.Function):
         if bias is not None and ctx.needs_input_grad[2]:
             grad_bias = grad_output.sum(0)
 
-        return grad_inputs, grad_weights, None, grad_bias, None
+        return grad_inputs, grad_weights, grad_bias, None
 
 #%% TopKast linear layer
 
@@ -99,8 +100,8 @@ class TopKastLinear(nn.Module):
         
         self.in_features, self.out_features = in_features, out_features
         self.p_forward, self.p_backward = p_forward, p_backward
-        self.weight = torch.empty((out_features, in_features),
-                                  **factory_kwargs)
+        self.weight = torch.empty(
+            (out_features, in_features), **factory_kwargs)
         
         if bias:
             self.bias = nn.Parameter(
@@ -125,16 +126,15 @@ class TopKastLinear(nn.Module):
   
     # Define masking operations
 
-    def compute_mask(self, p):
-        
-        w = self.weight
-        
-        if w.is_sparse:
-            threshold = torch.quantile(w.values().detach().abs(), p)
-            mask = np.where(w.values().detach().abs() >= threshold)
+    @staticmethod
+    def compute_mask(matrix, p):
+                
+        if matrix.is_sparse:
+            threshold = torch.quantile(matrix.values().detach().abs(), p)
+            mask = np.where(matrix.values().detach().abs() >= threshold)
         else:
-            threshold = torch.quantile(w.reshape(-1).detach().abs(), p)
-            mask = np.where(w.detach().abs() >= threshold)
+            threshold = torch.quantile(matrix.reshape(-1).detach().abs(), p)
+            mask = np.where(matrix.detach().abs() >= threshold)
             
         return mask
     
@@ -156,6 +156,23 @@ class TopKastLinear(nn.Module):
         
         return just_bwd[:, 0], just_bwd[:, 1]
     
+    # Define update step for active set
+    
+    def update_active_param_set(self) -> None:
+        self.indices_forward = self.compute_mask(self.weight, self.p_forward)
+        self.indices_backward = self.compute_mask(self.weight, self.p_backward)
+        self.just_backward = self.compute_justbwd()
+        
+        self.sparse_weights = torch.sparse_coo_tensor(
+            indices=self.indices_forward, 
+            values=self.weight[self.indices_forward], #/ (1 - self.p_forward),
+            size=self.weight.shape,
+            requires_grad=True)
+        
+        self.set_fwd = self.weight[self.indices_forward]
+        self.set_bwd = self.weight[self.indices_backward]
+        self.set_justbwd = self.weight[self.just_backward]
+    
     # Define forward pass
     
     def forward(self, inputs, sparse=True):
@@ -165,7 +182,6 @@ class TopKastLinear(nn.Module):
                 output = TopKastTraining.apply(
                     inputs, 
                     self.sparse_weights, 
-                    self.weight,
                     self.bias,
                     self.indices_backward)
             else:
@@ -185,36 +201,5 @@ class TopKastLinear(nn.Module):
                     inputs.t()).t()
         
         return output
-    
-    def update_active_param_set(self) -> None:
-        self.indices_forward = self.compute_mask(self.p_forward)
-        self.indices_backward = self.compute_mask(self.p_backward)
-        self.just_backward = self.compute_justbwd()
         
-        self.sparse_weights = torch.sparse_coo_tensor(
-            indices=self.indices_forward, 
-            values=self.weight[self.indices_forward],
-            size=self.weight.shape,
-            requires_grad=True)
-    
-    # Define fields to access different weight sets
-    
-    def set_fwd(self):
-        return torch.sparse_coo_tensor(
-            indices=self.indices_forward, 
-            values=self.weight[self.indices_forward],
-            size=self.weight.shape)
-    
-    def set_bwd(self):
-        return torch.sparse_coo_tensor(
-            indices=self.indices_backward, 
-            values=self.weight[self.indices_backward],
-            size=self.weight.shape)
-    
-    def set_justbwd(self):
-        return torch.sparse_coo_tensor(
-            indices=self.just_backward, 
-            values=self.weight[self.just_backward],
-            size=self.weight.shape)
-
 # %%
