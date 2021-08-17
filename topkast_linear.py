@@ -165,7 +165,7 @@ class TopKastLinear(nn.Module):
         
         self.sparse_weights = torch.sparse_coo_tensor(
             indices=self.indices_forward, 
-            values=self.weight[self.indices_forward],
+            values=self.weight[self.indices_forward], #/ (1 - self.p_forward),
             size=self.weight.shape,
             requires_grad=True)
         

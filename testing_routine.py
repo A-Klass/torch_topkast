@@ -35,7 +35,7 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
         split.append(0)
 
     train_count, validation_count, test_count = np.round(
-        np.multiply(boston_dataset().__len__(), [.7, .2, .1])).astype(int)
+        np.multiply(boston_dataset().__len__(), split)).astype(int)
     train_dataset, validation_dataset, test_dataset = \
     torch.utils.data.random_split(
         boston_dataset(), (train_count, validation_count, test_count), 
@@ -131,7 +131,7 @@ kast_net, val_loss, train_loss, best_epoch, test_loss = train(
     patience=20)
 
 # %%
-plt.plot(range(len(val_loss)), val_loss, color = "red")
-plt.plot(range(len(train_loss)), train_loss, color = "blue")
+plt.plot(range(len(val_loss)), val_loss, color="red")
+plt.plot(range(len(train_loss)), train_loss, color="blue")
 plt.show()
 # %%
