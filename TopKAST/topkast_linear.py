@@ -5,71 +5,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-#%% TopKast training function
-
-class TopKastTraining(torch.autograd.Function):
-    """ 
-    Custom pytorch function to handle changing connections and topkast.
-    ctx = context in which you can save stuff that doesn't need gradients.
-    """
-
-    @staticmethod
-    def forward(ctx, inputs, sparse_weights, bias, indices_backward):
-        
-        # Compute output as weighted sum of inputs plus bias term
-        
-        output = torch.sparse.addmm(
-            bias.unsqueeze(1), 
-            sparse_weights, 
-            inputs.t()).t()
-        
-        # Store values in saved tensors to access during backward()
-        
-        ctx.save_for_backward(inputs, sparse_weights, bias)
-        
-        # Store backward indices in context
-        
-        ctx.indices_backward = indices_backward
-
-        return output
-
-    @staticmethod
-    def backward(ctx, grad_output):
-
-        # Get saved tensors
-        
-        inputs, sparse_weights, bias = ctx.saved_tensors
-        
-        # Initialize gradients
-        
-        grad_inputs = grad_weights = grad_bias = None
-        
-        # Get backward indices from context
-        
-        indices_backward = ctx.indices_backward
-
-        # Compute grad wrt inputs if necessary
-        
-        if ctx.needs_input_grad[0]:
-            grad_inputs = grad_output.mm(sparse_weights.to_dense())
-            # grad_inputs = torch.sparse.mm(sparse_weights, grad_output.t()).t()
-        
-        # Compute grad wrt weights if necessary
-        
-        if ctx.needs_input_grad[1]:
-            grad_weights = grad_output.t().mm(inputs)
-            grad_weights = torch.sparse_coo_tensor(
-                indices=indices_backward,
-                values=grad_weights[indices_backward], 
-                size=grad_weights.shape)
-            
-        # Compute grad wrt bias if necessary (and bias is specified)
-        
-        if bias is not None and ctx.needs_input_grad[2]:
-            grad_bias = grad_output.sum(0)
-
-        return grad_inputs, grad_weights, grad_bias, None
-
 #%% TopKast linear layer
 
 class TopKastLinear(nn.Module):
@@ -163,9 +98,11 @@ class TopKastLinear(nn.Module):
         self.indices_backward = self.compute_mask(self.weight, self.p_backward)
         self.just_backward = self.compute_justbwd()
         
+        values = torch.cat((self.weight[self.indices_forward], torch.zeros(len(self.just_backward))))
+        indices = torch.cat((self.indices_forward, self.just_backward))
         self.sparse_weights = torch.sparse_coo_tensor(
-            indices=self.indices_forward, 
-            values=self.weight[self.indices_forward], #/ (1 - self.p_forward),
+            indices=indices, 
+            values=values, 
             size=self.weight.shape,
             requires_grad=True)
         
@@ -179,11 +116,10 @@ class TopKastLinear(nn.Module):
         if sparse:
             if self.training:
                 # Sparse training
-                output = TopKastTraining.apply(
-                    inputs, 
+                output = torch.sparse.addmm(
+                    self.bias.unsqueeze(1), 
                     self.sparse_weights, 
-                    self.bias,
-                    self.indices_backward)
+                    inputs.t()).t()
             else:
                 # Sparse forward pass without training
                 with torch.no_grad():
