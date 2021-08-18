@@ -28,7 +28,7 @@ class boston_dataset(Dataset):
         return data, target
     
 #%%    
-def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer, 
+def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
           batch_size, split=[.7, .2, .1], patience=5):
 
     if len(split) < 3:
@@ -66,24 +66,24 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
             y_hat = net(X)
             optimizer.zero_grad()
             loss_epoch = loss(y_hat, y)
-            loss_epoch.sum().backward()
+            loss_epoch.sum().backward(retain_graph = True)
             optimizer.step()
+            print(torch.linalg.norm(net.layer_in.sparse_weights.to_dense()))
+            # print(torch.linalg.norm(net.layer_in.sparse_weights.grad.to_dense()))
             losses_train[epoch] += loss_epoch / len(y)
             
         losses_validation[epoch] = loss(
             net(validation_dataset[:][0].float(), sparse=False), 
             validation_dataset[:][1].float().reshape(-1, 1))
         if (epoch + 1) % 100 == 0:
-            print(torch.linalg.norm(net.layer_in.sparse_weights.to_dense()))
-            print(torch.linalg.norm(net.layer_in.sparse_weights.grad))
             print(f'epoch {epoch + 1}, loss {losses_validation[epoch]:f}') 
         
         # Compare this loss to the best current loss
         # If it's better save the current net and change best loss
-        if losses_validation[epoch] < best_loss:
-            best_epoch = epoch
-            best_loss = losses_validation[epoch]
-            best_net = copy.deepcopy(net)
+        # if losses_validation[epoch] < best_loss:
+        #     best_epoch = epoch
+        #     best_loss = losses_validation[epoch]
+        #     best_net = copy.deepcopy(net)
 
         # Check if we are patience epochs away from the current best epoch, 
         # if that's the case break the training loop
@@ -114,13 +114,14 @@ class TopKastNet(nn.Module):
         y = self.layer_in(X, sparse=sparse)
         y = self.hidden(self.activation_1(y), sparse=sparse)
         
-        return self.layer_out(self.activation_1 (y), sparse=sparse)
+        return self.layer_out(self.activation_1(y), sparse=sparse)
+
 
 #%%
 net = TopKastNet()
 loss = TopKastLoss(loss=nn.MSELoss, net=net, alpha=0.4)
-params = [child.sparse_weights for child in net.children() if isinstance(child, TopKastLinear)]
-optimizer = torch.optim.Adagrad(params, lr=0.001)
+# params = [child.sparse_weights for child in net.children() if isinstance(child, TopKastLinear)]
+optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
 
 #%%
 kast_net, val_loss, train_loss, best_epoch, test_loss = train(

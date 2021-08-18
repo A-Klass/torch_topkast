@@ -35,8 +35,8 @@ class TopKastLinear(nn.Module):
         
         self.in_features, self.out_features = in_features, out_features
         self.p_forward, self.p_backward = p_forward, p_backward
-        self.weight = torch.empty(
-            (out_features, in_features), **factory_kwargs)
+        self.weight = nn.Parameter(torch.empty(
+            (out_features, in_features), **factory_kwargs))
         
         if bias:
             self.bias = nn.Parameter(
@@ -103,8 +103,7 @@ class TopKastLinear(nn.Module):
         self.sparse_weights = torch.sparse_coo_tensor(
             indices=indices, 
             values=values, 
-            size=self.weight.shape,
-            requires_grad=True)
+            size=self.weight.shape)
         
         self.set_fwd = self.weight[self.indices_forward]
         self.set_bwd = self.weight[self.indices_backward]
