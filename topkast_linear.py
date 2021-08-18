@@ -65,7 +65,7 @@ class TopKastTraining(torch.autograd.Function):
         # Compute grad wrt bias if necessary (and bias is specified)
         
         if bias is not None and ctx.needs_input_grad[2]:
-            grad_bias = grad_output.sum(0)
+            grad_bias = grad_output.sum(0).to_sparse()
 
         return grad_inputs, grad_weights, grad_bias, None
 
@@ -108,6 +108,7 @@ class TopKastLinear(nn.Module):
             self.register_parameter('bias', None)
             
         self.reset_parameters()
+        self.sparse_weights = None
         self.update_active_param_set()
         
     # Define weight initialization (He et al., 2015)
@@ -185,15 +186,17 @@ class TopKastLinear(nn.Module):
         return output
     
     def update_active_param_set(self) -> None:
+        if self.sparse_weights is not None:
+            with torch.no_grad():
+                self.weight[self.indices_forward] = self.sparse_weights.coalesce().values()
         self.indices_forward = self.compute_mask(self.p_forward)
         self.indices_backward = self.compute_mask(self.p_backward)
         self.just_backward = self.compute_justbwd()
         
-        self.sparse_weights = torch.sparse_coo_tensor(
+        self.sparse_weights = nn.Parameter(torch.sparse_coo_tensor(
             indices=self.indices_forward, 
             values=self.weight[self.indices_forward],
-            size=self.weight.shape,
-            requires_grad=True)
+            size=self.weight.shape))
     
     # Define fields to access different weight sets
     

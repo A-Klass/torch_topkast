@@ -28,7 +28,7 @@ class boston_dataset(Dataset):
         return data, target
     
 #%%    
-def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer, 
+def train(net, num_epochs, num_epochs_explore, update_every, loss, 
           batch_size, boston=datasets.load_boston(), split=[.7, .2, .1], 
           patience=5):
 
@@ -65,10 +65,11 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
             X = X.float()
             y = y.float().reshape((-1, 1))
             y_hat = net(X)
-            optimizer.zero_grad()
+            # optimizer.zero_grad()
             loss_epoch = loss(y_hat, y)
-            loss_epoch.sum().backward()
-            optimizer.step()
+            loss_epoch.sum().backward(retain_graph = True)
+            # optimizer.step()
+            sgd(net.parameters(), lr=0.001, batch_size=128)
             # print(net.layer_in.weight.grad)
             print(torch.linalg.norm(net.layer_in.sparse_weights.to_dense()))
             losses_train[epoch] += loss_epoch / len(y)
@@ -81,10 +82,10 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
         
         # Compare this loss to the best current loss
         # If it's better save the current net and change best loss
-        if losses_validation[epoch] < best_loss:
-            best_epoch = epoch
-            best_loss = losses_validation[epoch]
-            best_net = copy.deepcopy(net)
+        # if losses_validation[epoch] < best_loss:
+        #     best_epoch = epoch
+        #     best_loss = losses_validation[epoch]
+        #     best_net = copy.deepcopy(net)
 
         # Check if we are patience epochs away from the current best epoch, 
         # if that's the case break the training loop
@@ -118,10 +119,18 @@ class TopKastNet(nn.Module):
         return self.layer_out(self.activation_1 (y), sparse=sparse)
 
 #%%
+def sgd(params, lr, batch_size):  #@save
+    """Minibatch stochastic gradient descent."""
+    with torch.no_grad():
+        for param in params:
+            param -= lr * param.grad / batch_size
+            param.grad.zero_()
+
+#%%
 net = TopKastNet()
 loss = TopKastLoss(loss = nn.MSELoss, net = net)
-params = [child.sparse_weights for child in net.children() if isinstance(child, TopKastLinear)]
-optimizer = torch.optim.Adam(params, lr=0.1)
+# params = [child.sparse_weights for child in net.children() if isinstance(child, TopKastLinear)]
+# optimizer = torch.optim.SparseAdam(net.parameters(), lr=0.1)
 
 #%%
 kast_net, val_loss, train_loss, best_epoch, test_loss = train(
@@ -130,7 +139,7 @@ kast_net, val_loss, train_loss, best_epoch, test_loss = train(
     num_epochs_explore=30,
     update_every=10,
     loss=loss,
-    optimizer=optimizer, 
+    # optimizer=optimizer, 
     batch_size=128,
     patience=100)
 
