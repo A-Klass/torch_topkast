@@ -1,8 +1,8 @@
-# Course_Deep_Learning_Pytorch_Tensorflow
+# Course Applied Deep Learning with TensorFlow and PyTorch
 
 ## Implementation of Top-K Always Sparse Training in Pytorch
 
-This repository is going to contain a package for an implementation of [Top-KAST: Top-K Always Sparse Training](https://arxiv.org/abs/2106.03517v1), by [Lisa Wimmer](https://github.com/lisa-wm), [Sven Lorenz](https://github.com/SvenLorenz), and Andreas Klaß. Top-KAST is a generic method to train fully sparse neural networks. We follow the original ideas from the Top-KAST's authors as closely as possible.
+This repository is going to contain a package for an implementation of [Top-KAST: Top-K Always Sparse Training](https://arxiv.org/abs/2106.03517v1), by [Lisa Wimmer](https://github.com/lisa-wm), [Sven Lorenz](https://github.com/SvenLorenz), and Andreas Klaß. Top-KAST is a generic method to train fully sparse neural networks. We follow the original ideas from the authors' Top-KAST paper as closely as possible.
 
 ### Top-K Layers
 
@@ -15,8 +15,7 @@ Testing is carried out by training on a synthetic example (tbd) and the Boston h
 tbd.
 ### Benchmarks
 
-We compare runtimes and (V)RAM usage for simple vanilla networks to demonstrate the benefits of our implementation.
-
+We compare runtimes and VRAM usage to demonstrate the benefits of our implementation. Not finished yet. A comparison for simple vanilla networks may follow.
 ### Dependencies
 
 - Python >=3.7 
