@@ -98,8 +98,8 @@ class TopKastLinear(nn.Module):
         self.indices_backward = self.compute_mask(self.weight, self.p_backward)
         self.just_backward = self.compute_justbwd()
         
-        values = torch.cat((self.weight[self.indices_forward], torch.zeros(len(self.just_backward))))
-        indices = torch.cat((self.indices_forward, self.just_backward))
+        values = torch.cat((self.weight[self.indices_forward], torch.zeros(len(self.just_backward[0]))))
+        indices = (np.concatenate((self.indices_forward[0], self.just_backward[0])), np.concatenate((self.indices_forward[1], self.just_backward[1])))
         self.sparse_weights = torch.sparse_coo_tensor(
             indices=indices, 
             values=values, 
