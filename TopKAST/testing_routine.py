@@ -1,13 +1,16 @@
 #%%
-from sklearn import datasets
-import torch
-from torch.utils.data import Dataset, DataLoader
-import numpy as np
 import copy
+
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
 import torch.nn as nn
+from sklearn import datasets
+from torch.utils.data import DataLoader, Dataset
+
 from topkast_linear import TopKastLinear
 from topkast_loss import TopKastLoss
-import matplotlib.pyplot as plt
+
 
 #%%
 class boston_dataset(Dataset):
@@ -28,7 +31,7 @@ class boston_dataset(Dataset):
         return data, target
     
 #%%    
-def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
+def train(net, num_epochs, num_epochs_explore, update_every, loss,
           batch_size, split=[.7, .2, .1], patience=5):
 
     if len(split) < 3:
@@ -64,17 +67,20 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
             X = X.float()
             y = y.float().reshape(-1, 1)
             y_hat = net(X)
-            optimizer.zero_grad()
+            # optimizer.zero_grad()
             loss_epoch = loss(y_hat, y)
             loss_epoch.sum().backward(retain_graph = True)
-            optimizer.step()
-            print(torch.linalg.norm(net.layer_in.sparse_weights.to_dense()))
+            # print(torch.linalg.norm(net.layer_in.weight_vector))
+            # optimizer.step()
+            sgd(net.parameters(), lr=1e-3, batch_size=batch_size)
+            # print(torch.linalg.norm(net.layer_in.weight_vector))
+            # print(torch.linalg.norm(net.layer_in.bias))
             # print(torch.linalg.norm(net.layer_in.sparse_weights.grad.to_dense()))
             losses_train[epoch] += loss_epoch / len(y)
-            
-        losses_validation[epoch] = loss(
-            net(validation_dataset[:][0].float(), sparse=False), 
-            validation_dataset[:][1].float().reshape(-1, 1))
+        with torch.no_grad(): 
+            losses_validation[epoch] = loss(
+                net(validation_dataset[:][0].float(), sparse=False), 
+                validation_dataset[:][1].float().reshape(-1, 1))
         if (epoch + 1) % 100 == 0:
             print(f'epoch {epoch + 1}, loss {losses_validation[epoch]:f}') 
         
@@ -89,10 +95,10 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
         # if that's the case break the training loop
         if epoch - best_epoch > patience:
             break
-    
-    test_loss = loss(
-        net(test_dataset[:][0].float(), sparse=False), 
-        test_dataset[:][1].float().reshape(-1, 1))
+    with torch.no_grad():
+        test_loss = loss(
+            net(test_dataset[:][0].float(), sparse=False), 
+            test_dataset[:][1].float().reshape(-1, 1))
 
     return best_net, losses_validation[1:(best_epoch + patience)], \
         losses_train[1:(best_epoch + patience)], best_epoch, test_loss
@@ -116,21 +122,28 @@ class TopKastNet(nn.Module):
         
         return self.layer_out(self.activation_1(y), sparse=sparse)
 
-
+#%%
+def sgd(params, lr, batch_size):
+    """Minibatch stochastic gradient descent."""
+    with torch.no_grad():
+        for param in params:
+            param -= lr * param.grad / batch_size
+            param.grad.zero_()
+            
 #%%
 net = TopKastNet()
 loss = TopKastLoss(loss=nn.MSELoss, net=net, alpha=0.4)
 # params = [child.sparse_weights for child in net.children() if isinstance(child, TopKastLinear)]
-optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
+# optimizer = torch.optim.SGD(net.parameters(), lr=0.000001)
 
 #%%
 kast_net, val_loss, train_loss, best_epoch, test_loss = train(
     net=net, 
-    num_epochs=5000, 
+    num_epochs=10000, 
     num_epochs_explore=500,
     update_every=20,
     loss=loss,
-    optimizer=optimizer, 
+    # optimizer=optimizer, 
     batch_size=128,
     patience=20)
 
@@ -138,4 +151,5 @@ kast_net, val_loss, train_loss, best_epoch, test_loss = train(
 plt.plot(range(len(val_loss)), val_loss, color="red")
 plt.plot(range(len(train_loss)), train_loss, color="blue")
 plt.show()
+test_loss
 # %%

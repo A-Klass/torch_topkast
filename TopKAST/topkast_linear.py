@@ -4,6 +4,7 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
+import torch_sparse
 
 #%% TopKast linear layer
 
@@ -35,8 +36,7 @@ class TopKastLinear(nn.Module):
         
         self.in_features, self.out_features = in_features, out_features
         self.p_forward, self.p_backward = p_forward, p_backward
-        self.weight = nn.Parameter(torch.empty(
-            (out_features, in_features), **factory_kwargs))
+        self.weight = torch.empty((out_features, in_features), **factory_kwargs)
         
         if bias:
             self.bias = nn.Parameter(
@@ -45,6 +45,7 @@ class TopKastLinear(nn.Module):
             self.register_parameter('bias', None)
             
         self.reset_parameters()
+        self.weight_vector = None
         self.update_active_param_set()
         
     # Define weight initialization (He et al., 2015)
@@ -66,10 +67,10 @@ class TopKastLinear(nn.Module):
                 
         if matrix.is_sparse:
             threshold = torch.quantile(matrix.values().detach().abs(), p)
-            mask = np.where(matrix.values().detach().abs() >= threshold)
+            mask = torch.where(matrix.values().detach().abs() >= threshold)
         else:
             threshold = torch.quantile(matrix.reshape(-1).detach().abs(), p)
-            mask = np.where(matrix.detach().abs() >= threshold)
+            mask = torch.where(matrix.detach().abs() >= threshold)
             
         return mask
     
@@ -87,23 +88,25 @@ class TopKastLinear(nn.Module):
             tuples_bwd.append([r, c])
 
         setdiff = lambda x, y: [x_ for x_ in x if x_ not in y]
-        just_bwd = np.array(setdiff(tuples_bwd, tuples_fwd))
+        just_bwd = torch.tensor(setdiff(tuples_bwd, tuples_fwd))
         
         return just_bwd[:, 0], just_bwd[:, 1]
     
     # Define update step for active set
     
     def update_active_param_set(self) -> None:
+        if self.weight_vector is not None:
+            self.weight[self.indices_backward] = self.weight_vector
+        
         self.indices_forward = self.compute_mask(self.weight, self.p_forward)
         self.indices_backward = self.compute_mask(self.weight, self.p_backward)
         self.just_backward = self.compute_justbwd()
         
-        values = torch.cat((self.weight[self.indices_forward], torch.zeros(len(self.just_backward[0]))))
-        indices = (np.concatenate((self.indices_forward[0], self.just_backward[0])), np.concatenate((self.indices_forward[1], self.just_backward[1])))
-        self.sparse_weights = torch.sparse_coo_tensor(
-            indices=indices, 
-            values=values, 
-            size=self.weight.shape)
+        self.weight_vector = nn.Parameter(
+            torch.cat((self.weight[self.indices_forward],
+                       torch.zeros(len(self.just_backward[0])))))
+        self.indices = (torch.cat((self.indices_forward[0], self.just_backward[0])), 
+                        torch.cat((self.indices_forward[1], self.just_backward[1])))
         
         self.set_fwd = self.weight[self.indices_forward]
         self.set_bwd = self.weight[self.indices_backward]
@@ -115,17 +118,23 @@ class TopKastLinear(nn.Module):
         if sparse:
             if self.training:
                 # Sparse training
-                output = torch.sparse.addmm(
-                    self.bias.unsqueeze(1), 
-                    self.sparse_weights, 
+                output = torch_sparse.spmm(
+                    self.indices, 
+                    self.weight_vector, 
+                    self.out_features, 
+                    self.in_features, 
                     inputs.t()).t()
+                output += self.bias
             else:
                 # Sparse forward pass without training
                 with torch.no_grad():
-                    output = torch.sparse.addmm(
-                        self.bias.unsqueeze(1), 
-                        self.sparse_weights, 
-                        inputs.t()).t()
+                    output = torch_sparse.spmm(
+                    self.indices, 
+                    self.weight_vector, 
+                    self.out_features, 
+                    self.in_features, 
+                    inputs.t()).t()
+                    output += self.bias
         else:
             # Dense training is not possible, only a dense forward pass for 
             # prediction
