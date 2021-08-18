@@ -67,7 +67,7 @@ class TopKastTraining(torch.autograd.Function):
         if bias is not None and ctx.needs_input_grad[2]:
             grad_bias = grad_output.sum(0)
 
-        return grad_inputs, grad_weights, None, grad_bias, None
+        return grad_inputs, None, grad_weights, grad_bias, None
 
 #%% TopKast linear layer
 
@@ -90,17 +90,17 @@ class TopKastLinear(nn.Module):
             assert i > 0, 'inputs must be > 0'
         for i in [p_forward, p_backward]:
             assert type(i) == float, 'float input required'
-            assert i > 0, 'inputs must be between 0 and 1'
-            assert i <= 1, 'inputs must be between 0 and 1'
-        assert p_forward > p_backward
+            assert i >= 0., 'inputs must be between 0 and 1'
+            assert i <= 1., 'inputs must be between 0 and 1'
+        assert p_forward >= p_backward
         assert type(bias) == bool
             
         # Initialize
         
         self.in_features, self.out_features = in_features, out_features
         self.p_forward, self.p_backward = p_forward, p_backward
-        self.weight = torch.empty((out_features, in_features),
-                                  **factory_kwargs)
+        self.weight = nn.Parameter(
+            torch.empty((out_features, in_features), **factory_kwargs))
         
         if bias:
             self.bias = nn.Parameter(
@@ -194,8 +194,7 @@ class TopKastLinear(nn.Module):
         self.sparse_weights = torch.sparse_coo_tensor(
             indices=self.indices_forward, 
             values=self.weight[self.indices_forward],
-            size=self.weight.shape,
-            requires_grad=True)
+            size=self.weight.shape)
     
     # Define fields to access different weight sets
     
