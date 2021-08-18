@@ -74,6 +74,8 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
             net(validation_dataset[:][0].float(), sparse=False), 
             validation_dataset[:][1].float().reshape(-1, 1))
         if (epoch + 1) % 100 == 0:
+            print(torch.linalg.norm(net.layer_in.sparse_weights.to_dense()))
+            print(torch.linalg.norm(net.layer_in.sparse_weights.grad))
             print(f'epoch {epoch + 1}, loss {losses_validation[epoch]:f}') 
         
         # Compare this loss to the best current loss
@@ -117,7 +119,8 @@ class TopKastNet(nn.Module):
 #%%
 net = TopKastNet()
 loss = TopKastLoss(loss=nn.MSELoss, net=net, alpha=0.4)
-optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
+params = [child.sparse_weights for child in net.children() if isinstance(child, TopKastLinear)]
+optimizer = torch.optim.Adagrad(params, lr=0.001)
 
 #%%
 kast_net, val_loss, train_loss, best_epoch, test_loss = train(
