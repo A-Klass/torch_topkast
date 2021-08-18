@@ -32,7 +32,7 @@ class boston_dataset(Dataset):
     
 #%%    
 def train(net, num_epochs, num_epochs_explore, update_every, loss,
-          batch_size, split=[.7, .2, .1], patience=5):
+          batch_size, split=[.7, .2, .1], patience=5, lr=1e-3):
 
     if len(split) < 3:
         split.append(0)
@@ -69,10 +69,10 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss,
             y_hat = net(X)
             # optimizer.zero_grad()
             loss_epoch = loss(y_hat, y)
-            loss_epoch.sum().backward(retain_graph = True)
+            loss_epoch.sum().backward()
             # print(torch.linalg.norm(net.layer_in.weight_vector))
             # optimizer.step()
-            sgd(net.parameters(), lr=1e-3, batch_size=batch_size)
+            sgd(net.parameters(), lr=lr, batch_size=batch_size)
             # print(torch.linalg.norm(net.layer_in.weight_vector))
             # print(torch.linalg.norm(net.layer_in.bias))
             # print(torch.linalg.norm(net.layer_in.sparse_weights.grad.to_dense()))
@@ -82,14 +82,14 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss,
                 net(validation_dataset[:][0].float(), sparse=False), 
                 validation_dataset[:][1].float().reshape(-1, 1))
         if (epoch + 1) % 100 == 0:
-            print(f'epoch {epoch + 1}, loss {losses_validation[epoch]:f}') 
+            print(f'epoch {epoch + 1}, loss {losses_validation[epoch]:f} train loss {losses_train[epoch]:f}')  
         
         # Compare this loss to the best current loss
         # If it's better save the current net and change best loss
-        # if losses_validation[epoch] < best_loss:
-        #     best_epoch = epoch
-        #     best_loss = losses_validation[epoch]
-        #     best_net = copy.deepcopy(net)
+        if losses_validation[epoch] < best_loss:
+            best_epoch = epoch
+            best_loss = losses_validation[epoch]
+            best_net = copy.deepcopy(net)
 
         # Check if we are patience epochs away from the current best epoch, 
         # if that's the case break the training loop
@@ -108,19 +108,22 @@ class TopKastNet(nn.Module):
     def __init__(self):
         super().__init__()
         self.layer_in = TopKastLinear(
-            13, 16, p_forward=0.2, p_backward=0.1)
-        self.activation_1 = nn.ReLU()
-        self.hidden = TopKastLinear(
-            16, 128, p_forward=0.5, p_backward=0.4)
+            13, 512, p_forward=0.6, p_backward=0.5)
+        self.activation = nn.ReLU()
+        self.hidden1 = TopKastLinear(
+            512, 512, p_forward=0.7, p_backward=0.5)
+        # self.hidden2 = TopKastLinear(
+        #     1024, 1024, p_forward=0.5, p_backward=0.4)
         self.layer_out = TopKastLinear(
-            128, 1,
-            p_forward=0.3, p_backward=0.2)
+            512, 1,
+            p_forward=0.6, p_backward=0.5)
 
     def forward(self, X, sparse=True):
         y = self.layer_in(X, sparse=sparse)
-        y = self.hidden(self.activation_1(y), sparse=sparse)
+        y = self.hidden1(self.activation(y), sparse=sparse)
+        # y = self.hidden2(self.activation(y), sparse=sparse)
         
-        return self.layer_out(self.activation_1(y), sparse=sparse)
+        return self.layer_out(self.activation(y), sparse=sparse)
 
 #%%
 def sgd(params, lr, batch_size):
@@ -140,12 +143,12 @@ loss = TopKastLoss(loss=nn.MSELoss, net=net, alpha=0.4)
 kast_net, val_loss, train_loss, best_epoch, test_loss = train(
     net=net, 
     num_epochs=10000, 
-    num_epochs_explore=500,
-    update_every=20,
+    num_epochs_explore=1000,
+    update_every=100,
     loss=loss,
     # optimizer=optimizer, 
     batch_size=128,
-    patience=20)
+    patience=1)
 
 # %%
 plt.plot(range(len(val_loss)), val_loss, color="red")
