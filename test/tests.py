@@ -1,3 +1,7 @@
+#%% Usage:
+    # 1. Make sure that nose is installed: pip install nose
+    # 2. From the Anaconda terminal, call: nosetests test/tests.py
+
 #%% Imports
 
 import numpy as np
