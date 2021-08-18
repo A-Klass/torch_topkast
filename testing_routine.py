@@ -69,8 +69,8 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss, optimizer,
             loss_epoch = loss(y_hat, y)
             loss_epoch.sum().backward()
             optimizer.step()
-            print(net.layer_in.weight.grad)
-            print(net.layer_in.sparse_weights.grad)
+            # print(net.layer_in.weight.grad)
+            print(torch.linalg.norm(net.layer_in.sparse_weights.to_dense()))
             losses_train[epoch] += loss_epoch / len(y)
             
         losses_validation[epoch] = loss(
@@ -120,8 +120,8 @@ class TopKastNet(nn.Module):
 #%%
 net = TopKastNet()
 loss = TopKastLoss(loss = nn.MSELoss, net = net)
-# params = [child.sparse_weights for child in net.children() if isinstance(child, TopKastLinear)]
-optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
+params = [child.sparse_weights for child in net.children() if isinstance(child, TopKastLinear)]
+optimizer = torch.optim.Adam(params, lr=0.1)
 
 #%%
 kast_net, val_loss, train_loss, best_epoch, test_loss = train(
