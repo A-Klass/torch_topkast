@@ -12,3 +12,6 @@ Garbage Notation:
 * grad_output ist der Gradient des Losses in Relation zum Outputs des Layers (ohne activation function!!)
 * input ist der input zu diesem layer 
 * weight die weight Matrix
+
+### Proof of Concept
+MAYBE Resnet50 wie in dem Paper beschrieben. 
