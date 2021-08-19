@@ -1,12 +1,26 @@
 #%%
+# In order to use relative import such as:
+# from TopKAST.topkast_linear import TopKastLinear, 
+# first add the the package path to the PYTHONPATH.
+import sys
+sys.path.insert(0, "./TopKAST")
+
+try:
+    from topkast_linear import TopKastLinear
+except ImportError:
+    raise SystemExit("not found. check your relative path")
+ 
+try:
+    from topkast_loss import TopKastLoss
+except ImportError:
+    raise SystemExit("not found. check your relative path")    
+
 from sklearn import datasets
 import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import copy
 import torch.nn as nn
-from topkast_linear import TopKastLinear
-from topkast_loss import TopKastLoss
 import matplotlib.pyplot as plt
 
 #%%
