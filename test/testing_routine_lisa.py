@@ -155,7 +155,7 @@ def train(data, net, num_epochs, num_epochs_explore,
     return losses_validation[1:(best_epoch + patience)], \
         losses_train[1:(best_epoch + patience)], best_epoch, test_loss
         
-#%% define net
+#%% define topkast net
 
 class TopKastNet(nn.Module):
     def __init__(self, in_features):
@@ -174,15 +174,31 @@ class TopKastNet(nn.Module):
     def forward(self, X, sparse=True):
         y = self.layer_in(X, sparse=sparse)
         y = self.hidden1(self.activation(y), sparse=sparse)
-        # y = self.hidden2(self.activation(y), sparse=sparse)
         
         return self.layer_out(self.activation(y), sparse=sparse)
+
+#%% define regular net
+
+class RegularNet(nn.Module):
+    def __init__(self, in_features):
+        super().__init__()
+        self.layer_in = nn.Linear(in_features, 128)
+        self.activation = nn.ReLU()
+        self.hidden1 = nn.Linear(128, 128)
+        self.layer_out = nn.Linear(128, 1)
+
+    def forward(self, X, sparse=True):
+        y = self.layer_in(X)
+        y = self.hidden1(self.activation(y))
+        
+        return self.layer_out(self.activation(y))
 
 #%% set up vars
 
 data = synthetic_dataset(1000)
 # data = boston_dataset()
-net = TopKastNet(2)
+# net = TopKastNet(2)
+net = RegularNet(2)
 loss = TopKastLoss(loss=nn.MSELoss, net=net, alpha=0.4)
 
 #%% run training
@@ -190,7 +206,7 @@ loss = TopKastLoss(loss=nn.MSELoss, net=net, alpha=0.4)
 val_loss, train_loss, best_epoch, test_loss = train(
     data=data,
     net=net, 
-    num_epochs=500, 
+    num_epochs=10000, 
     num_epochs_explore=100,
     update_every=10,
     loss=loss,
