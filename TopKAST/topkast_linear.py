@@ -79,18 +79,13 @@ class TopKastLinear(nn.Module):
      
     def compute_justbwd(self):
         
-        f, b = self.indices_forward, self.indices_backward
-        tuples_fwd, tuples_bwd = [], []
+        f = torch.zeros_like(self.weight)
+        b = torch.zeros_like(self.weight)
         
-        for r, c in zip(f[0], f[1]):
-            tuples_fwd.append([r, c])
-        for r, c in zip(b[0], b[1]):
-            tuples_bwd.append([r, c])
-
-        setdiff = lambda x, y: [x_ for x_ in x if x_ not in y]
-        just_bwd = torch.tensor(setdiff(tuples_bwd, tuples_fwd))
+        f[self.indices_forward] = 1
+        b[self.indices_backward] = 1
         
-        return just_bwd[:, 0], just_bwd[:, 1]
+        return torch.where(b - f == 1)
     
     # Define update step for active set
     
