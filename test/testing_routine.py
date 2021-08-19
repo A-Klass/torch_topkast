@@ -1,4 +1,5 @@
 #%%
+
 # In order to use relative import such as:
 # from TopKAST.topkast_linear import TopKastLinear, 
 # first add the the package path to the PYTHONPATH.
@@ -145,7 +146,8 @@ kast_net, val_loss, train_loss, best_epoch, test_loss = train(
     patience=20)
 
 # %%
-plt.plot(range(len(val_loss)), val_loss, color="red")
-plt.plot(range(len(train_loss)), train_loss, color="blue")
+plt.plot(range(len(val_loss)), val_loss, color="red", label="val_loss")
+plt.plot(range(len(train_loss)), train_loss, color="blue", label="train_loss")
+plt.legend(loc="upper right")
 plt.show()
 # %%
