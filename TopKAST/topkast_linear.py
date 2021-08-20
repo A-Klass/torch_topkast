@@ -91,15 +91,15 @@ class TopKastLinear(nn.Module):
     
     def update_active_param_set(self) -> None:
         if self.weight_vector is not None:
-            self.weight[self.indices_backward] = self.weight_vector
+            self.weight[self.indices_backward] = self.weight_vector.detach()
         
         self.indices_forward = self.compute_mask(self.weight, self.p_forward)
         self.indices_backward = self.compute_mask(self.weight, self.p_backward)
         self.just_backward = self.compute_justbwd()
         
         self.weight_vector = nn.Parameter(
-            torch.cat((self.weight[self.indices_forward],
-                       torch.zeros(len(self.just_backward[0])))))
+            torch.cat((self.weight[self.indices_forward].detach(),
+                       torch.zeros(len(self.just_backward[0])).detach())))
         self.indices = (torch.cat((self.indices_forward[0], self.just_backward[0])), 
                         torch.cat((self.indices_forward[1], self.just_backward[1])))
         
