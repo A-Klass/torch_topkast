@@ -1,0 +1,13 @@
+https://github.com/pytorch/pytorch/blob/master/torch/nn/modules/sparse.py
+Apr 23
+class Embedding(Module):
+c        sparse (bool, optional): If ``True``, gradient w.r.t. :attr:`weight` matrix will be a sparse tensor.
+                                 See Notes for more details regarding sparse gradients.
+    .. note::
+        Keep in mind that only a limited number of optimizers support
+        sparse gradients: currently it's :class:`optim.SGD` (`CUDA` and `CPU`),
+        :class:`optim.SparseAdam` (`CUDA` and `CPU`) and :class:`optim.Adagrad` (`CPU`)
+
+
+
+https://nn.readthedocs.io/en/readthedocs/simple/index.html#nn.SparseLinear
