@@ -103,9 +103,9 @@ class TopKastLinear(nn.Module):
         self.indices = (torch.cat((self.indices_forward[0], self.just_backward[0])), 
                         torch.cat((self.indices_forward[1], self.just_backward[1])))
         
-        self.set_fwd = self.weight[self.indices_forward]
-        self.set_bwd = self.weight[self.indices_backward]
-        self.set_justbwd = self.weight[self.just_backward]
+        self.set_fwd = range(len(self.indices_forward[0]))
+        # self.set_bwd = self.weight[self.indices_backward]
+        self.set_justbwd = range(len(self.indices_forward[0]), len(self.weight_vector))
     
     # Define forward pass
     
