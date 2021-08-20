@@ -84,6 +84,9 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss,
             # print(torch.linalg.norm(net.layer_in.weight_vector))
             # optimizer.step()
             sgd(net.parameters(), lr=lr, batch_size=batch_size)
+            # for layer in net.children():
+            #     if isinstance(layer, TopKastLinear):
+            #         layer.update_backward_weights()
             # print(torch.linalg.norm(net.layer_in.weight_vector))
             # print(torch.linalg.norm(net.layer_in.bias))
             # print(torch.linalg.norm(net.layer_in.sparse_weights.grad.to_dense()))
@@ -92,7 +95,7 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss,
             losses_validation[epoch] = loss(
                 net(validation_dataset[:][0].float(), sparse=False), 
                 validation_dataset[:][1].float().reshape(-1, 1))
-        if (epoch + 1) % 100 == 0:
+        if (epoch + 1) % 10 == 0:
             print(f'epoch {epoch + 1}, loss {losses_validation[epoch]:f} train loss {losses_train[epoch]:f}')  
         
         # Compare this loss to the best current loss
@@ -119,14 +122,14 @@ class TopKastNet(nn.Module):
     def __init__(self):
         super().__init__()
         self.layer_in = TopKastLinear(
-            13, 512, p_forward=0.6, p_backward=0.5)
+            13, 128, p_forward=0.6, p_backward=0.5)
         self.activation = nn.ReLU()
         self.hidden1 = TopKastLinear(
-            512, 512, p_forward=0.7, p_backward=0.5)
+            128, 128, p_forward=0.7, p_backward=0.5)
         # self.hidden2 = TopKastLinear(
         #     1024, 1024, p_forward=0.5, p_backward=0.4)
         self.layer_out = TopKastLinear(
-            512, 1,
+            128, 1,
             p_forward=0.6, p_backward=0.5)
 
     def forward(self, X, sparse=True):
@@ -153,13 +156,13 @@ loss = TopKastLoss(loss=nn.MSELoss, net=net, alpha=0.4)
 #%%
 kast_net, val_loss, train_loss, best_epoch, test_loss = train(
     net=net, 
-    num_epochs=10000, 
-    num_epochs_explore=1000,
-    update_every=100,
+    num_epochs=1000, 
+    num_epochs_explore=100,
+    update_every=10,
     loss=loss,
     # optimizer=optimizer, 
     batch_size=128,
-    patience=1)
+    patience=5)
 
 # %%
 plt.plot(range(len(val_loss)), val_loss, color="red", label="val_loss")
