@@ -110,13 +110,26 @@ class TopKastLinear(nn.Module):
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
             torch.nn.init.uniform_(self.bias, -bound, bound)
   
+    
+    def norm(tensor: torch.Tensor, norm: str='abs'):
+        assert norm == 'abs' or norm == 'euclidean'
+        if norm == 'abs':
+            norm_tensor = tensor.abs()
+        else:
+            norm_tensor = tensor.square()
+        return norm_tensor
+    
     # Masking operations
     @staticmethod
-    def compute_mask(matrix, K):
+    def compute_mask(matrix,
+                     K: float,
+                     norm: str='abs'):
         """
         Get the indices of `matrix` values that belong to
         the `K` biggest absolute values in this matrix
-        (as in: top 1 % of the layer, by weight norm)
+        (as in: top 1 % of the layer, by weight norm).
+        Support for Euclidean norm may be added later on (depending
+        on the project's progress)
         
         Args:
             matrix (torch.Tensor): weight matrix
@@ -125,41 +138,51 @@ class TopKastLinear(nn.Module):
         Returns:
             torch.Tensor with indices
         """
+        
         if matrix.is_sparse:
-            threshold = torch.quantile(matrix.values().detach().abs(), K)
-            mask = torch.where(matrix.values().detach().abs() >= threshold)
+            threshold = torch.quantile(matrix.values().detach().norm(norm), K)
+            mask = torch.where(matrix.values().detach().norm(norm) >= threshold)
         else:
-            threshold = torch.quantile(matrix.reshape(-1).detach().abs(), K)
-            mask = torch.where(matrix.detach().abs() >= threshold)
+            threshold = torch.quantile(matrix.reshape(-1).detach().norm(norm), K)
+            mask = torch.where(matrix.detach().norm(norm)>= threshold)
         return mask
     
-    def compute_justbwd(self):
+    def compute_just_bwd(self):
         """
-        Compute set difference between forward set (A) and backward set (B)
-         
+        Compute set difference between forward set (A) and backward set (B).
+        Supposed to be called within update_active_param_set() which 
+        sets the indices by computing the mask for self.idx_fwd and self.idx_bwd,
+        thus creating self.idx_fwd and self.idx_bwd
+        
         Input:
             The mask from compute_mask(matrix, K)
             
         Returns:
-            torch.Tensor with indices
+            torch.Tensor cpntaining indices of B\A
         """
-        # Rather lengthy because ordering by index in the mask must be circumvented
+        
+        assert self.idx_fwd is not None and self.idx_bwd is not None, \
+            "make sure that the indices are assigned within \
+                update_active_param_set() before calling this function."
+        
         A = torch.zeros_like(self.weight)
         B = torch.zeros_like(self.weight)
         
-        A[self.indices_forward] = 1
-        B[self.indices_backward] = 1
+        A[self.idx_fwd] = 1
+        B[self.idx_bwd] = 1
         
         return torch.where(B - A == 1)
     
     # Update step for active set
     def update_active_param_set(self) -> None:
+        # when not calling for first time, then update 
+        # all parameters affected in the backward pass
         if self.weight_vector is not None:
-            self.weight[self.indices_backward] = self.weight_vector.detach()
+            self.weight[self.idx_bwd] = self.weight_vector.detach()
         
-        self.indices_forward = self.compute_mask(self.weight, self.p_forward)
-        self.indices_backward = self.compute_mask(self.weight, self.p_backward)
-        self.just_backward = self.compute_justbwd()
+        self.idx_fwd = self.compute_mask(self.weight, self.p_forward)
+        self.idx_bwd = self.compute_mask(self.weight, self.p_backward)
+        self.just_backward = self.compute_just_bwd()
         
         self.weight_vector = nn.Parameter(
             torch.cat((self.weight[self.indices_forward].detach(),
