@@ -126,14 +126,12 @@ class TopKastNet(nn.Module):
     def __init__(self):
         super().__init__()
         self.layer_in = TopKastLinear(
-            13, 128, p_forward=0.6, p_backward=0.5)
+            13, 10, p_forward=0.6, p_backward=0.5)
         self.activation = nn.ReLU()
         self.hidden1 = TopKastLinear(
-            128, 128, p_forward=0.7, p_backward=0.5)
-        # self.hidden2 = TopKastLinear(
-        #     1024, 1024, p_forward=0.5, p_backward=0.4)
+            10, 10, p_forward=0.7, p_backward=0.5)
         self.layer_out = TopKastLinear(
-            128, 1,
+            10, 1,
             p_forward=0.6, p_backward=0.5)
 
     def forward(self, X, sparse=True):
@@ -165,7 +163,7 @@ kast_net, val_loss, train_loss, best_epoch, test_loss = train(
     update_every=1,
     loss=loss,
     # optimizer=optimizer, 
-    batch_size=128,
+    batch_size=4,
     patience=5)
 
 # %%

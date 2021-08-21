@@ -40,17 +40,24 @@ class TopKastLinear(nn.Module):
                  out_features: int, 
                  p_forward: float, 
                  p_backward: float, 
-                 include_bias: bool=True, 
+                 bias: bool=True, 
                  device='cpu', 
                  dtype=None) -> None:
         """ Initialize the layer
-        
+        Note:
+            We refer to p_forward, p_backward as forward and backward
+            sparsity, respectively. Since there are more parameters 
+            affected in the backward pass than in the forward pass, 
+            we enforce p_forward > p_backward.
+                
         Args:
-            in_features (int): input dimension
-            out_features (int): output dimension
-            p_forward (float): forward sparsity as percentage
-            p_backward (float): backward sparsity as percentage
-            include_bias (bool): whether to add bias term
+            in_features (int): input dimension (# of batch size)
+            out_features (int): output dimension (# of columns in layer)
+            p_forward (float): Forward sparsity as percentage. 
+                               How many parameters (in %) are set to 0.
+            p_backward (float): Backward sparsity as percentage.
+                                How many parameters (in %) are set to 0.
+            bias (bool): whether to add bias term
             device (str): either 'cpu' or 'cuda'
             dtype: do we need this?
 
@@ -63,15 +70,15 @@ class TopKastLinear(nn.Module):
                 raise ValueError(i % "must be > 0")
         for j in [p_forward, p_backward]:
             if j < 0:
-                raise ValueError(j % "must be > 0")
-            if j > 1:
-                raise ValueError(j % "must be <=1")
+                raise ValueError(j % "must be >= 0")
+            if j >= 1:
+                raise ValueError(j % "must be < 1")
             
         # Usually, you would want something like: values that make up 
         # the top 5 % (by magnitude) such that the sparsity is 95%.
         # If the "forward sparsity" is 95% and we backpropagate for
         # a superset B⊃A then the "backward sparsity" must be lower.
-        assert p_forward > p_backward 
+        assert p_forward >= p_backward
         
         assert device == "cpu" or device == "cuda"
         if device == "cuda":
@@ -87,18 +94,17 @@ class TopKastLinear(nn.Module):
         # Dense tensor with full dimensionality to store weights in:
         self.weight = torch.empty((out_features, in_features), **factory_kwargs)
         
-        if include_bias:
+        if bias:
             self.bias = nn.Parameter(
                 torch.empty(out_features, **factory_kwargs))
         else:
             self.register_parameter('bias', None)
             
         self.reset_parameters()
-        self.weight_vector = None
+        self.active_fwd_weights = None
         self.update_active_param_set()
         
     # Define weight initialization (He et al., 2015)
-
     def reset_parameters(self) -> None:
         
         torch.nn.init.kaiming_uniform_(self.weight,
@@ -109,43 +115,26 @@ class TopKastLinear(nn.Module):
                 self.weight)
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
             torch.nn.init.uniform_(self.bias, -bound, bound)
-  
-    
-    def norm(tensor: torch.Tensor, norm: str='abs'):
-        assert norm == 'abs' or norm == 'euclidean'
-        if norm == 'abs':
-            norm_tensor = tensor.abs()
-        else:
-            norm_tensor = tensor.square()
-        return norm_tensor
-    
+            
     # Masking operations
     @staticmethod
     def compute_mask(matrix,
-                     K: float,
-                     norm: str='abs'):
+                     p: float):
         """
         Get the indices of `matrix` values that belong to
-        the `K` biggest absolute values in this matrix
+        the `p` biggest absolute values in this matrix
         (as in: top 1 % of the layer, by weight norm).
-        Support for Euclidean norm may be added later on (depending
-        on the project's progress)
+        In the paper this refers to D or D+M, respectively.
         
         Args:
             matrix (torch.Tensor): weight matrix
-            K (float): self.p_forward; p-quantile
+            p(float): self.p_forward; p-quantile
             
         Returns:
-            torch.Tensor with indices
+            mask as tuple torch.Tensor with indices
         """
-        
-        if matrix.is_sparse:
-            threshold = torch.quantile(matrix.values().detach().norm(norm), K)
-            mask = torch.where(matrix.values().detach().norm(norm) >= threshold)
-        else:
-            threshold = torch.quantile(matrix.reshape(-1).detach().norm(norm), K)
-            mask = torch.where(matrix.detach().norm(norm)>= threshold)
-        return mask
+        threshold = torch.quantile(torch.abs(matrix), p)
+        return torch.where(torch.abs(matrix) >= threshold)
     
     def compute_just_bwd(self):
         """
@@ -158,7 +147,7 @@ class TopKastLinear(nn.Module):
             The mask from compute_mask(matrix, K)
             
         Returns:
-            torch.Tensor cpntaining indices of B\A
+            torch.Tensor cntaining indices of B\A
         """
         
         assert self.idx_fwd is not None and self.idx_bwd is not None, \
@@ -175,23 +164,33 @@ class TopKastLinear(nn.Module):
     
     # Update step for active set
     def update_active_param_set(self) -> None:
+        """
+        Updates the dense (complete) weight tensor with 
+        newly learned weights from B.
+        Computes the masks to get the subsets of active parameters
+        (sets A, B, and B\A) in terms of indices. 
+        """
         # when not calling for first time, then update 
         # all parameters affected in the backward pass
-        if self.weight_vector is not None:
-            self.weight[self.idx_bwd] = self.weight_vector.detach()
+        if self.active_fwd_weights is not None:
+            self.weight[self.idx_bwd] = self.active_fwd_weights.detach()
         
         self.idx_fwd = self.compute_mask(self.weight, self.p_forward)
         self.idx_bwd = self.compute_mask(self.weight, self.p_backward)
         self.just_backward = self.compute_just_bwd()
         
-        self.weight_vector = nn.Parameter(
-            torch.cat((self.weight[self.indices_forward].detach(),
-                       torch.zeros(len(self.just_backward[0])).detach())))
-        self.indices = (torch.cat((self.indices_forward[0], self.just_backward[0])), 
-                        torch.cat((self.indices_forward[1], self.just_backward[1])))
+        # The vector of active weights for the forward pass contains the 
+        # ones from A as well as placeholders for B\A with value=0.00.
+        # We do this since for a sparse coo tensor it is impossible
+        # to update values in-place.
+        self.active_fwd_weights = nn.Parameter(
+            torch.cat((self.weight[self.idx_fwd].detach(),
+                       torch.zeros(len(self.just_backward[0])).detach()))) # paddings for B\A
+        self.indices = (torch.cat((self.idx_fwd[0], self.just_backward[0])), 
+                        torch.cat((self.idx_fwd[1], self.just_backward[1])))
         
-        self.set_fwd = self.weight[self.indices_forward]
-        self.set_bwd = self.weight[self.indices_backward]
+        self.set_fwd = self.weight[self.idx_fwd]
+        self.set_bwd = self.weight[self.idx_bwd]
         self.set_justbwd = self.weight[self.just_backward]
     
     # Define forward pass
@@ -202,7 +201,7 @@ class TopKastLinear(nn.Module):
                 # Sparse training
                 output = torch_sparse.spmm(
                     self.indices, 
-                    self.weight_vector, 
+                    self.active_fwd_weights, 
                     self.out_features, 
                     self.in_features, 
                     inputs.t()).t()
@@ -212,7 +211,7 @@ class TopKastLinear(nn.Module):
                 with torch.no_grad():
                     output = torch_sparse.spmm(
                     self.indices, 
-                    self.weight_vector, 
+                    self.active_fwd_weights, 
                     self.out_features, 
                     self.in_features, 
                     inputs.t()).t()
