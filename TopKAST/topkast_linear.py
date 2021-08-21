@@ -82,8 +82,8 @@ class TopKastLinear(nn.Module):
         f = torch.zeros_like(self.weight)
         b = torch.zeros_like(self.weight)
         
-        f[self.indices_forward] = 1
-        b[self.indices_backward] = 1
+        f[self.idx_fwd] = 1
+        b[self.idx_bwd] = 1
         
         return torch.where(b - f == 1)
     
@@ -91,21 +91,33 @@ class TopKastLinear(nn.Module):
     
     def update_active_param_set(self) -> None:
         if self.weight_vector is not None:
-            self.weight[self.indices_backward] = self.weight_vector
+            self.weight[self.idx_fwd] = self.weight_vector.detach()[self.set_fwd]
         
-        self.indices_forward = self.compute_mask(self.weight, self.p_forward)
-        self.indices_backward = self.compute_mask(self.weight, self.p_backward)
-        self.just_backward = self.compute_justbwd()
+        # idx_* are indices in the weight matrix
+        self.idx_fwd = self.compute_mask(self.weight, self.p_forward)
+        self.idx_bwd = self.compute_mask(self.weight, self.p_backward)
+        self.idx_justbwd = self.compute_justbwd()
         
         self.weight_vector = nn.Parameter(
-            torch.cat((self.weight[self.indices_forward],
-                       torch.zeros(len(self.just_backward[0])))))
-        self.indices = (torch.cat((self.indices_forward[0], self.just_backward[0])), 
-                        torch.cat((self.indices_forward[1], self.just_backward[1])))
+            torch.cat((self.weight[self.idx_fwd].detach(),
+                       torch.zeros(len(self.idx_justbwd[0])).detach())))
+        self.indices = (torch.cat((self.idx_fwd[0], self.idx_justbwd[0])), 
+                        torch.cat((self.idx_fwd[1], self.idx_justbwd[1])))
         
-        self.set_fwd = self.weight[self.indices_forward]
-        self.set_bwd = self.weight[self.indices_backward]
-        self.set_justbwd = self.weight[self.just_backward]
+        # set_* are the indices used in weight_vector
+        self.set_fwd = range(len(self.idx_fwd[0]))
+        # self.set_bwd = self.weight[self.idx_bwd]
+        self.set_justbwd = range(len(self.idx_fwd[0]), len(self.weight_vector))
+        
+    # Define update step for backward weights
+    
+    def reset_justbwd_weights(self) -> None:
+        """Updates weight matrix for B\A and resets the corresponding weights in 
+        the forward weight_vector"""
+        self.weight[self.idx_justbwd] += self.weight_vector.detach()[self.set_justbwd]
+        with torch.no_grad():
+            self.weight_vector[self.set_justbwd] = 0
+
     
     # Define forward pass
     
