@@ -1,7 +1,7 @@
 """
 We need a class that does the training with burn in phase etc.
 """
-
+# a lot to still debug
 from TopKAST.topkast_loss import TopKastLoss
 import numpy as np
 import torch 
