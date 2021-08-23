@@ -1,18 +1,9 @@
 # %%
-# In order to use relative import such as:
-# from TopKAST.topkast_linear import TopKastLinear, 
-# first add the the package path to the PYTHONPATH.
-import sys
-sys.path.insert(0, "./TopKAST")
-
-try:
-    from topkast_linear import TopKastLinear
-except ImportError:
-    raise SystemExit("not found. check your relative path")
+from torch_topkast.topkast_linear import TopKastLinear
   
 import torch
 import torch.nn as nn
-from topkast_linear import TopKastLinear
+from torch_topkast.topkast_linear import TopKastLinear
 
 #%%
 class TopKastLoss(nn.Module):

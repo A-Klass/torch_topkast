@@ -2,8 +2,9 @@
 Testing procedure including the trainer class
 """
 #%%
-from TopKAST.topkast_linear import TopKastLinear
-from TopKAST.topkast_loss import TopKastLoss
+from torch_topkast.topkast_linear import TopKastLinear
+from torch_topkast.topkast_loss import TopKastLoss
+from torch_topkast.topkast_trainer import TopKastTrainer
 import torch
 from torch.utils.data import DataLoader
 import numpy as np

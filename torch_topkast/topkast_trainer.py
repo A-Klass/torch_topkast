@@ -2,20 +2,8 @@
 Class for training according to the authors 
 With burn in phase etc.
 """
-import sys
-sys.path.insert(0, "./TopKAST")
-sys.path.insert(0, "./test")
-try:
-    # from TopKAST.topkast_linear import TopKastLinear
-    from topkast_linear import TopKastLinear
-except ImportError:
-    raise SystemExit("not found. check your relative path")
-
-try:
-    # from TopKAST.topkast_loss import TopKastLoss
-    from topkast_loss import TopKastLoss
-except ImportError:
-    raise SystemExit("not found. check your relative path")
+from torch_topkast.topkast_linear import TopKastLinear
+from torch_topkast.topkast_loss import TopKastLoss
 
 from copy import error
 
