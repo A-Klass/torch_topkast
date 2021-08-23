@@ -15,7 +15,7 @@ setup(
     author='Lisa Wimmer, Sven Lorenz, Andreas Klaß',
     # author_email='was soll hier rein?',
     url='https://github.com/A-Klass/appl_deepl',
-    license=license,
+#     license=license,
     packages=find_packages(exclude=('tests', 'docs'))
 )
 
