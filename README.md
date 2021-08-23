@@ -25,8 +25,12 @@ We compare runtimes and VRAM usage to demonstrate the benefits of our implementa
 - Python >=3.7 
 - NumPy >= 1.19.5
 - PyTorch >= 1.8.1
-- pytorch-sparse >= 0.6.11
+- pytorch-sparse >= 0.6.11 (https://github.com/rusty1s/pytorch_sparse)
 
 ## Installation
 
-tbd
+Local installation:
+1. Clone this repository.
+2. Install pytorch_sparse for your specifications (https://github.com/rusty1s/pytorch_sparse)
+3. `cd appl_deepl`
+4. `pip install .`
