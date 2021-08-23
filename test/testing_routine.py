@@ -78,18 +78,14 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss,
             X = X.float()
             y = y.float().reshape(-1, 1)
             y_hat = net(X)
-            # optimizer.zero_grad()
             loss_epoch = loss(y_hat, y)
             loss_epoch.sum().backward()
-            # print(torch.linalg.norm(net.layer_in.weight_vector))
-            # optimizer.step()
             sgd(net.parameters(), lr=lr, batch_size=batch_size)
-            # for layer in net.children():
-            #     if isinstance(layer, TopKastLinear):
-            #         layer.update_backward_weights()
+            for layer in net.children():
+                if isinstance(layer, TopKastLinear):
+                    layer.reset_justbwd_weights()
             # print(torch.linalg.norm(net.layer_in.weight_vector))
             # print(torch.linalg.norm(net.layer_in.bias))
-            # print(torch.linalg.norm(net.layer_in.sparse_weights.grad.to_dense()))
             losses_train[epoch] += loss_epoch / len(y)
         with torch.no_grad(): 
             losses_validation[epoch] = loss(
@@ -97,6 +93,7 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss,
                 validation_dataset[:][1].float().reshape(-1, 1))
         if (epoch + 1) % 10 == 0:
             print(f'epoch {epoch + 1}, loss {losses_validation[epoch]:f} train loss {losses_train[epoch]:f}')  
+            print(torch.linalg.norm(net.layer_in.weight_vector.grad))
         
         # Compare this loss to the best current loss
         # If it's better save the current net and change best loss
@@ -109,6 +106,7 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss,
         # if that's the case break the training loop
         if epoch - best_epoch > patience:
             break
+        
     with torch.no_grad():
         test_loss = loss(
             net(test_dataset[:][0].float(), sparse=False), 
@@ -122,20 +120,17 @@ class TopKastNet(nn.Module):
     def __init__(self):
         super().__init__()
         self.layer_in = TopKastLinear(
-            13, 128, p_forward=0.6, p_backward=0.5)
+            13, 128, p_forward=0.6, p_backward=0.5, gain=0.1)
         self.activation = nn.ReLU()
         self.hidden1 = TopKastLinear(
-            128, 128, p_forward=0.7, p_backward=0.5)
-        # self.hidden2 = TopKastLinear(
-        #     1024, 1024, p_forward=0.5, p_backward=0.4)
+            128, 128, p_forward=0.7, p_backward=0.5, gain=0.1)
         self.layer_out = TopKastLinear(
             128, 1,
-            p_forward=0.6, p_backward=0.5)
+            p_forward=0.6, p_backward=0.5, gain=0.1)
 
     def forward(self, X, sparse=True):
         y = self.layer_in(X, sparse=sparse)
         y = self.hidden1(self.activation(y), sparse=sparse)
-        # y = self.hidden2(self.activation(y), sparse=sparse)
         
         return self.layer_out(self.activation(y), sparse=sparse)
 
@@ -149,9 +144,7 @@ def sgd(params, lr, batch_size):
             
 #%%
 net = TopKastNet()
-loss = TopKastLoss(loss=nn.MSELoss, net=net, alpha=0.4)
-# params = [child.sparse_weights for child in net.children() if isinstance(child, TopKastLinear)]
-# optimizer = torch.optim.SGD(net.parameters(), lr=0.000001)
+loss = TopKastLoss(loss=nn.MSELoss, net=net, alpha=0.6)
 
 #%%
 kast_net, val_loss, train_loss, best_epoch, test_loss = train(
@@ -160,9 +153,9 @@ kast_net, val_loss, train_loss, best_epoch, test_loss = train(
     num_epochs_explore=100,
     update_every=10,
     loss=loss,
-    # optimizer=optimizer, 
     batch_size=128,
-    patience=5)
+    patience=20,
+    lr=1e-3)
 
 # %%
 plt.plot(range(len(val_loss)), val_loss, color="red", label="val_loss")

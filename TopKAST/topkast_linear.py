@@ -1,7 +1,6 @@
 #%% Imports
 
 import math
-import numpy as np
 import torch
 import torch.nn as nn
 import torch_sparse
@@ -14,8 +13,8 @@ class TopKastLinear(nn.Module):
     """
     
     def __init__(self, in_features: int, out_features: int, p_forward: float, 
-                 p_backward: float, bias: bool=True, device=None, 
-                 dtype=None) -> None:
+                 p_backward: float, bias: bool=True, gain:float=1.,
+                 device=None, dtype=None) -> None:
         
         factory_kwargs = {'device': device, 'dtype': dtype}
         super(TopKastLinear, self).__init__()
@@ -36,7 +35,9 @@ class TopKastLinear(nn.Module):
         
         self.in_features, self.out_features = in_features, out_features
         self.p_forward, self.p_backward = p_forward, p_backward
-        self.weight = torch.empty((out_features, in_features), **factory_kwargs)
+        self.gain = gain
+        self.weight = torch.empty(
+            (out_features, in_features), **factory_kwargs)
         
         if bias:
             self.bias = nn.Parameter(
@@ -52,7 +53,8 @@ class TopKastLinear(nn.Module):
 
     def reset_parameters(self) -> None:
         
-        torch.nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        # torch.nn.init.kaiming_uniform_(self.weight)
+        torch.nn.init.xavier_normal_(self.weight, self.gain)
         
         if self.bias is not None:
             fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(

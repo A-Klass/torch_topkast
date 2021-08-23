@@ -50,14 +50,17 @@ class TopKastLoss(nn.Module):
             # TODO: adjust if further TopKast layers are added (proper class
             # system)
             # For a common layer, all weights are L2-penalized.
-                
+
             if isinstance(child, TopKastLinear):
-                penalty += torch.linalg.norm(child.weight_vector[child.set_fwd])
-                # penalty += torch.linalg.norm(child.active_fwd_weights[child.set_fwd])
-                penalty += (torch.linalg.norm(child.weight_vector[child.set_justbwd]) / # this is always 0: debug von vorn bis hinten. vllt kurz weights überschreiben oder so. 
-                            (1 - child.p_forward))
-                # penalty += (torch.linalg.norm(child.active_fwd_weights[child.set_justbwd]) / # this is always 0: debug von vorn bis hinten. vllt kurz weights überschreiben oder so. 
-                #             (1 - child.p_forward))
+                penalty += torch.linalg.norm(
+                    child.weight_vector[child.set_fwd])
+                penalty += (torch.linalg.norm(
+                    child.weight_vector[child.set_justbwd]) /  
+                    (1 - child.p_forward))
+                penalty += (torch.linalg.norm(
+                    child.weight[child.idx_justbwd]) /  
+                    (1 - child.p_forward))
+                
             else:
                 for name in child._parameters.keys():
                     if name != 'weight': continue
