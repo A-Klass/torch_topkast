@@ -173,8 +173,7 @@ class TopKastLinear(nn.Module):
         # when not calling for first time, then update 
         # all parameters affected in the backward pass
         if self.active_fwd_weights is not None:
-            self.weight[self.idx_fwd] = self.active_fwd_weights[self.set_fwd].detach()
-        
+            self.weight[self.idx_fwd] = self.active_fwd_weights.detach()[self.set_fwd]       
         self.idx_fwd = self.compute_mask(self.weight, self.p_forward)
         self.idx_bwd = self.compute_mask(self.weight, self.p_backward)
         self.just_backward = self.compute_just_bwd()
@@ -189,10 +188,9 @@ class TopKastLinear(nn.Module):
         self.indices = (torch.cat((self.idx_fwd[0], self.just_backward[0])), 
                         torch.cat((self.idx_fwd[1], self.just_backward[1])))
         
-        self.set_fwd = self.weight[self.idx_fwd]
-        self.set_bwd = self.weight[self.idx_bwd]
-        self.set_justbwd = self.weight[self.just_backward]
-    
+        self.set_fwd = range(len(self.idx_fwd[0]))
+        self.set_justbwd = range(len(self.idx_fwd[0]), len(self.active_fwd_weights))        
+
     def reset_justbwd_weights(self) -> None:
         """
         Updates weight matrix for B\A and resets the corresponding weights in 
