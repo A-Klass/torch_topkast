@@ -5,8 +5,8 @@
 #%% Imports
 
 import numpy as np
-import TopKAST.topkast_linear as tk
-import TopKAST.topkast_loss as tkl
+import torch_topkast.topkast_linear as tk
+import torch_topkast.topkast_loss as tkl
 import torch
 import torch.nn as nn
 import unittest
