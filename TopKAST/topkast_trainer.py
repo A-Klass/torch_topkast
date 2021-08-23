@@ -6,12 +6,14 @@ import sys
 sys.path.insert(0, "./TopKAST")
 sys.path.insert(0, "./test")
 try:
-    from TopKAST.topkast_linear import TopKastLinear
+    # from TopKAST.topkast_linear import TopKastLinear
+    from topkast_linear import TopKastLinear
 except ImportError:
     raise SystemExit("not found. check your relative path")
 
 try:
-    from TopKAST.topkast_loss import TopKastLoss
+    # from TopKAST.topkast_loss import TopKastLoss
+    from topkast_loss import TopKastLoss
 except ImportError:
     raise SystemExit("not found. check your relative path")
 
@@ -79,6 +81,8 @@ class TopKastTrainer():
         self.num_epochs = num_epochs
 
         self.print_info_every = print_info_every
+        
+        self.print_loss_history = print_loss_history
         
         if num_epochs_explore is None:
             num_epochs_explore = max(int(1), int(num_epochs / 10))
@@ -199,7 +203,7 @@ class TopKastTrainer():
             if epoch - self.best_epoch > self.patience:
                 break
 
-        if print_loss_history:
+        if self.print_loss_history:
             print(self.losses_validation[1:(self.best_epoch)])
             print(self.losses_train[1:(self.best_epoch)])
 
