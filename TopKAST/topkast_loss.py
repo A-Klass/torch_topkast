@@ -57,9 +57,6 @@ class TopKastLoss(nn.Module):
                 penalty += (torch.linalg.norm(
                     child.weight_vector[child.set_justbwd]) /  
                     (1 - child.p_forward))
-                penalty += (torch.linalg.norm(
-                    child.weight[child.idx_justbwd]) /  
-                    (1 - child.p_forward))
                 
             else:
                 for name in child._parameters.keys():

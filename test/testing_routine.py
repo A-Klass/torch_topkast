@@ -93,7 +93,7 @@ def train(net, num_epochs, num_epochs_explore, update_every, loss,
                 validation_dataset[:][1].float().reshape(-1, 1))
         if (epoch + 1) % 10 == 0:
             print(f'epoch {epoch + 1}, loss {losses_validation[epoch]:f} train loss {losses_train[epoch]:f}')  
-            print(torch.linalg.norm(net.layer_in.weight_vector.grad))
+            print(torch.linalg.norm(net.layer_out.weight_vector.grad))
         
         # Compare this loss to the best current loss
         # If it's better save the current net and change best loss
@@ -120,13 +120,13 @@ class TopKastNet(nn.Module):
     def __init__(self):
         super().__init__()
         self.layer_in = TopKastLinear(
-            13, 128, p_forward=0.6, p_backward=0.5, gain=0.1)
+            13, 128, p_forward=0.6, p_backward=0.5)
         self.activation = nn.ReLU()
         self.hidden1 = TopKastLinear(
-            128, 128, p_forward=0.7, p_backward=0.5, gain=0.1)
+            128, 128, p_forward=0.7, p_backward=0.5)
         self.layer_out = TopKastLinear(
             128, 1,
-            p_forward=0.6, p_backward=0.5, gain=0.1)
+            p_forward=0.6, p_backward=0.5)
 
     def forward(self, X, sparse=True):
         y = self.layer_in(X, sparse=sparse)

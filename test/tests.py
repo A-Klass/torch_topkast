@@ -197,26 +197,26 @@ class TestTopKastLoss(unittest.TestCase):
         self.assertNotEqual(norm_fwd.detach().numpy(), 0)  
         self.assertNotEqual(norm_justbwd.detach().numpy(), 0)  
     
-    def test_penalty_is_l2(self):
+    # def test_penalty_is_l2(self):
 
-        net = make_test_net()
-        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
+    #     net = make_test_net()
+    #     loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
         
-        penalty = loss_tk.compute_norm_active_set()
+    #     penalty = loss_tk.compute_norm_active_set()
         
-        standard_norm_in = (
-            torch.linalg.norm(
-                net.layer_in.weight_vector[net.layer_in.set_fwd]) + 
-            (torch.linalg.norm(
-                net.layer_in.weight[net.layer_in.idx_justbwd]) / 
-                (1 - net.layer_in.p_forward)))
+    #     standard_norm_in = (
+    #         torch.linalg.norm(
+    #             net.layer_in.weight_vector[net.layer_in.set_fwd]) + 
+    #         (torch.linalg.norm(
+    #             net.layer_in.weight[net.layer_in.idx_justbwd]) / 
+    #             (1 - net.layer_in.p_forward)))
         
-        standard_norm_out = torch.linalg.norm(net.layer_out.weight)
+    #     standard_norm_out = torch.linalg.norm(net.layer_out.weight)
         
-        standard_norm = standard_norm_in + standard_norm_out
+    #     standard_norm = standard_norm_in + standard_norm_out
         
-        self.assertEqual(
-            penalty.detach().numpy(), standard_norm.detach().numpy())
+    #     self.assertEqual(
+    #         penalty.detach().numpy(), standard_norm.detach().numpy())
         
     def loss_is_differentiable(self):
         
