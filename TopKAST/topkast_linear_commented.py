@@ -173,7 +173,7 @@ class TopKastLinear(nn.Module):
         # when not calling for first time, then update 
         # all parameters affected in the backward pass
         if self.active_fwd_weights is not None:
-            self.weight[self.idx_bwd] = self.active_fwd_weights.detach()
+            self.weight[self.idx_fwd] = self.active_fwd_weights[self.set_fwd].detach()
         
         self.idx_fwd = self.compute_mask(self.weight, self.p_forward)
         self.idx_bwd = self.compute_mask(self.weight, self.p_backward)
