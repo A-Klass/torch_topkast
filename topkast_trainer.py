@@ -42,14 +42,12 @@ class TopKastNet(nn.Module):
     def __init__(self):
         super().__init__()
         self.layer_in = TopKastLinear(
-            13, 128, p_forward=0.6, p_backward=0.5)
+            13, 16, p_forward=0.6, p_backward=0.5)
         self.activation = nn.ReLU()
         self.hidden1 = TopKastLinear(
-            128, 128, p_forward=0.7, p_backward=0.5)
-        # self.hidden2 = TopKastLinear(
-        #     1024, 1024, p_forward=0.5, p_backward=0.4)
+            16, 16, p_forward=0.7, p_backward=0.5)
         self.layer_out = TopKastLinear(
-            128, 1,
+            16, 1,
             p_forward=0.6, p_backward=0.5)
 
     def forward(self, X, sparse=True):
