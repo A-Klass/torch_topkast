@@ -2,33 +2,8 @@
 Testing procedure including the trainer class
 """
 #%%
-import sys
-# import os
-# path_to_TopKAST = os.path.join(os.getcwd(), "TopKAST")
-# sys.path.insert(0, path_to_TopKAST)
-sys.path.insert(0, "./TopKAST")
-sys.path.insert(0, "./test")
-print(sys.path)
-try:
-    from topkast_linear import TopKastLinear
-except ImportError:
-    raise SystemExit("not found. check your relative path")
- 
-try:
-    from topkast_loss import TopKastLoss
-except ImportError:
-    raise SystemExit("not found. check your relative path")    
-
-try:
-    from topkast_trainer import TopKastTrainer
-except ImportError:
-    raise SystemExit("not found. check your relative path")    
-
-try:
-    from test_data import synthetic_dataset, boston_dataset
-except ImportError:
-    raise SystemExit("not found. check your relative path")  
-
+from TopKAST.topkast_linear import TopKastLinear
+from TopKAST.topkast_loss import TopKastLoss
 import torch
 from torch.utils.data import DataLoader
 import numpy as np
