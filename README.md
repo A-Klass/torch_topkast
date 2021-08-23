@@ -11,7 +11,7 @@ Selecting the active parameter subset is done by identifying the Top-K biggest w
 
 ### Testing
 
-Testing is carried out by training on a synthetic example (tbd) and the Boston housing data set
+Testing is carried out by training on a synthetic two-dimensional example and the Boston housing data set.
 
 ### Example
 
