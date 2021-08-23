@@ -18,8 +18,6 @@ class boston_dataset(Dataset):
         target = torch.tensor(self.dataset.target[idx])
         return data, target 
     
-import torch
-
 class synthetic_dataset():
     """Synthetic two-dimensional regression task"""
     
