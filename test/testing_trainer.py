@@ -9,17 +9,17 @@ sys.path.insert(0, "./TopKAST")
 sys.path.insert(0, "./test")
 print(sys.path)
 try:
-    from TopKAST.topkast_linear import TopKastLinear
+    from topkast_linear import TopKastLinear
 except ImportError:
     raise SystemExit("not found. check your relative path")
  
 try:
-    from TopKAST.topkast_loss import TopKastLoss
+    from topkast_loss import TopKastLoss
 except ImportError:
     raise SystemExit("not found. check your relative path")    
 
 try:
-    from TopKAST.topkast_trainer import TopKastTrainer
+    from topkast_trainer import TopKastTrainer
 except ImportError:
     raise SystemExit("not found. check your relative path")    
 
