@@ -5,7 +5,7 @@ with open('README.md') as f:
     readme = f.read()
 
 # kudos: https://stackoverflow.com/a/16084844
-exec(open('appl_deepl/_version.py').read())
+exec(open('_version.py').read())
  
 setup(
     name='appl_deepl_topkast',
