@@ -3,7 +3,6 @@ from torch_topkast.topkast_linear import TopKastLinear
   
 import torch
 import torch.nn as nn
-from torch_topkast.topkast_linear import TopKastLinear
 
 #%%
 class TopKastLoss(nn.Module):
