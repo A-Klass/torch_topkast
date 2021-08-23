@@ -193,6 +193,15 @@ class TopKastLinear(nn.Module):
         self.set_bwd = self.weight[self.idx_bwd]
         self.set_justbwd = self.weight[self.just_backward]
     
+    def reset_justbwd_weights(self) -> None:
+        """
+        Updates weight matrix for B\A and resets the corresponding weights in 
+        the forward weight_vector
+        """
+        self.weight[self.idx_justbwd] += self.active_fwd_weights.detach()[self.set_justbwd]
+        with torch.no_grad():
+            self.active_fwd_weights[self.set_justbwd] = 0
+
     # Define forward pass
     
     def forward(self, inputs, sparse=True):
