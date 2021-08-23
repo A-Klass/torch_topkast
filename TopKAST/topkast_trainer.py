@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, "./TopKAST")
 sys.path.insert(0, "./test")
 try:
-    from TopKAST.topkast_linear_commented import TopKastLinear
+    from TopKAST.topkast_linear import TopKastLinear
 except ImportError:
     raise SystemExit("not found. check your relative path")
 
@@ -14,47 +14,20 @@ try:
 except ImportError:
     raise SystemExit("not found. check your relative path")
 
-try:
-    from test.boston_dataset import boston_dataset
-except ImportError:
-    raise SystemExit("not found. check your relative path")
-
 from copy import error
 
 import numpy as np
 import torch 
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 
 # For now it is not 100% clear whether we can utilize nn.optim optimizers
-def sgd(params, lr, batch_size):
+def sgd_custom(params, lr, batch_size):
     """Minibatch stochastic gradient descent."""
     with torch.no_grad():
         for param in params:
             param -= lr * param.grad / batch_size
             param.grad.zero_()
-
-class TopKastNet(nn.Module):
-    """
-    Build a neural net with TopKast layers.
-    This is our vanilla template for easy testing
-    """
-    def __init__(self):
-        super().__init__()
-        self.layer_in = TopKastLinear(
-            13, 16, p_forward=0.6, p_backward=0.5)
-        self.activation = nn.ReLU()
-        self.hidden1 = TopKastLinear(
-            16, 16, p_forward=0.7, p_backward=0.5)
-        self.layer_out = TopKastLinear(
-            16, 1,
-            p_forward=0.6, p_backward=0.5)
-
-    def forward(self, X, sparse=True):
-        y = self.layer_in(X, sparse=sparse)
-        y = self.hidden1(self.activation(y), sparse=sparse)
-
-        return self.layer_out(self.activation(y), sparse=sparse)
 
 class TopKastTrainer():
     """
@@ -67,17 +40,19 @@ class TopKastTrainer():
     """
     
     def __init__(self,
-                 topkast_net: TopKastNet,
+                 topkast_net,
                  loss: TopKastLoss,
                  num_epochs: int = 50,
+                 print_info_every: int = 10,
+                 print_loss_history: bool = False,
                  num_epochs_explore: int = None,
                  update_every: int = None,
                  batch_size: int = None,
                  train_val_test_split: list = [.7, .2, .1],
                  patience: int = None,
-                 optimizer: nn.optim = None,
+                 optimizer: torch.optim = None,
                  params_optimizer: dict = None,
-              #  data = boston_dataset(),
+                 data = None,
                 #  loss_args
                  ):
         """
@@ -85,6 +60,8 @@ class TopKastTrainer():
             topkast_net (TopKastNet): a neural net with TopKast sparse layers.
             loss (TopKastLoss):
             num_epochs (int): # of epochs for which training is run.
+            print_info_every(int): print val/train loss es periodically.
+            print_loss_history(bool): print training results.
             num_epochs_explore: # of epochs for exploration phase
             update_every: do Top-K selection at every `update_every` epoch.
             batch_size (int): # of observations per batch.
@@ -99,7 +76,9 @@ class TopKastTrainer():
         self.net = topkast_net
         
         self.num_epochs = num_epochs
-    
+
+        self.print_info_every = print_info_every
+        
         if num_epochs_explore is None:
             num_epochs_explore = max(int(1), int(num_epochs / 10))
         else: 
@@ -118,25 +97,26 @@ class TopKastTrainer():
             patience = num_epochs
         self.patience = patience
     
-        #####################
-        # # dataset
-        # hardcoded for now
-        self.data = boston_dataset() 
-    
+        assert data is not None
+        self.data = data
+        
+        assert isinstance(self.data.__len__(), int)
+        self.n_obs = self.data.__len__()
+        
         if batch_size is None:
             batch_size = max(1, int(self.data.__len__() / 50))
         self.batch_size = batch_size
         #####################
     
         # self.loss = loss(loss_args)
-        self.loss = loss()
+        self.loss = loss
         
         if len(train_val_test_split) < 3:
             train_val_test_split.append(0)
         self.train_val_test_split = train_val_test_split
     
         self.train_count, self.validation_count, self.test_count = np.round(
-            np.multiply(boston_dataset().__len__(), train_val_test_split)).astype(int)
+            np.multiply(self.n_obs, train_val_test_split)).astype(int)
         
         self.train_dataset, self.validation_dataset, self.test_dataset = \
         torch.utils.data.random_split(
@@ -152,9 +132,8 @@ class TopKastTrainer():
         
         # parameters for the optimizer
         if optimizer is None:
-            self.optimizer = sgd(self.net.parameters(), 
-                                 lr=0.001, 
-                                 batch_size=self.batch_size)
+            self.optimizer = sgd_custom
+            self.lr = 0.001
         else:
             # self.optimizer = optimizer(params_optimizer)
             raise ValueError('currently we only allow our self defined SGD')
@@ -162,21 +141,25 @@ class TopKastTrainer():
             
         self.losses_validation = np.zeros(self.num_epochs)
         self.losses_train = np.zeros(self.num_epochs)
+        self.test_loss = None
         self.best_loss = np.inf
         self.best_epoch = 0
         self.best_net = None
     
-    def training(self):
-        for epoch in range(self.num_epochs):
-            if epoch < self.num_epochs_explore:
-                for layer in self.net.children():
-                    if isinstance(layer, TopKastLinear):
+    def _burn_in(self, epoch) -> None:
+      if epoch < self.num_epochs_explore:
+            for layer in self.net.children():
+                if isinstance(layer, TopKastLinear):
+                    layer.update_active_param_set()
+      else:
+            if epoch % self.update_every == 0:
+               for layer in self.net.children():
+                   if isinstance(layer, TopKastLinear):
                         layer.update_active_param_set()
-            else:
-                if epoch % self.update_every == 0:
-                    for layer in self.net.children():
-                        if isinstance(layer, TopKastLinear):
-                            layer.update_active_param_set() 
+                        
+    def train(self):
+        for epoch in range(self.num_epochs):
+            self._burn_in(epoch)
             for X, y in self.train_dataset:
                 X = X.float()
                 y = y.float().reshape(-1, 1)
@@ -186,7 +169,9 @@ class TopKastTrainer():
                 loss_epoch.sum().backward()
                 # print(torch.linalg.norm(net.layer_in.weight_vector))
                 # optimizer.step()
-                self.optimizer
+                self.optimizer(self.net.parameters(), 
+                               lr=self.lr, 
+                               batch_size=self.batch_size)
                 # for layer in net.children():
                 #     if isinstance(layer, TopKastLinear):
                 #         layer.update_backward_weights()
@@ -198,8 +183,8 @@ class TopKastTrainer():
                 self.losses_validation[epoch] = self.loss(
                     self.net(self.validation_dataset[:][0].float(), sparse=False), 
                     self.validation_dataset[:][1].float().reshape(-1, 1))
-            if (epoch + 1) % 10 == 0:
-                print(f'epoch {epoch + 1}, loss {self.losses_validation[epoch]:f} train loss {self.losses_train[epoch]:f}')  
+            if (epoch + 1) % self.print_info_every == 0:
+                print(f'epoch {epoch + 1}, val loss {self.losses_validation[epoch]:f} train loss {self.losses_train[epoch]:f}')  
         
             # Compare this loss to the best current loss
             # If it's better save the current net and change best loss
@@ -212,21 +197,22 @@ class TopKastTrainer():
             # if that's the case break the training loop
             if epoch - self.best_epoch > self.patience:
                 break
+
+        if print_loss_history:
+            print(self.losses_validation[1:(self.best_epoch)])
+            print(self.losses_train[1:(self.best_epoch)])
+
+    # maybe we can include these methods as well?
+    def predict():
+        # something with no_grad()
+        pass
+    
+    def eval(self, test_data = None):
+        """
+        evaluate on test set
+        """
         with torch.no_grad():
             test_loss = self.loss(
                 self.net(self.test_dataset[:][0].float(), sparse=False), 
                 self.test_dataset[:][1].float().reshape(-1, 1))
-
-        return self.losses_validation[1:(self.best_epoch + self.patience)], \
-            self.losses_train[1:(self.best_epoch + self.patience)]
-        
-    def burn_in(self, epoch) -> None:
-      if epoch < self.num_epochs_explore:
-            for layer in self.children():
-                if isinstance(layer, TopKastLinear):
-                    layer.update_active_param_set()
-      else:
-            if epoch % self.update_every == 0:
-               for layer in self.children():
-                   if isinstance(layer, TopKastLinear):
-                        layer.update_active_param_set()
+            print(f'test loss' % test_loss)
