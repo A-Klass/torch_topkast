@@ -31,6 +31,6 @@ We compare runtimes and VRAM usage to demonstrate the benefits of our implementa
 
 Local installation:
 1. Clone this repository.
-2. Install pytorch_sparse for your specifications (https://github.com/rusty1s/pytorch_sparse)
-3. `cd appl_deepl`
-4. `pip install .`
+2. Install pytorch_sparse according to your specifications (https://github.com/rusty1s/pytorch_sparse).
+3. Set working directory to where the repository has been copied to (`cd appl_deepl`).
+4. Call `pip install .` from your (Anaconda) terminal.
