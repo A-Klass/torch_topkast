@@ -11,6 +11,7 @@ import numpy as np
 import copy
 import torch.nn as nn
 import matplotlib.pyplot as plt
+from test_data import *
 #%%
 # Setup a small vanilla net to compare against
 class RegularNet(nn.Module):
@@ -52,7 +53,7 @@ data_synthetic = synthetic_dataset(1024)
 #%%
 net1 = TopKastNet(2) # synthetic data is 2 dimensional
 loss1 = TopKastLoss(loss=nn.MSELoss, net=net1, alpha=0.4)
-
+optimizer1 = torch.optim.SGD(net1.parameters(), lr=1e-04)
 # Instantiate a TopKast trainer
 trainer = TopKastTrainer(net1,
                          loss1,
@@ -60,7 +61,8 @@ trainer = TopKastTrainer(net1,
                          num_epochs_explore = 2,
                          update_every = 3,
                          batch_size = 5,
-                         patience= 50,
+                         patience = 50,
+                         optimizer = optimizer1,
                          data = data_synthetic)
 # and call training method
 trainer.train()
@@ -68,39 +70,45 @@ print("finished training RegularNet(2) for synthetic data")
 #%% 
 net2 = RegularNet(2)
 loss2 = TopKastLoss(loss=nn.MSELoss, net=net2, alpha=0.4)
+optimizer2 = torch.optim.SGD(net2.parameters(), lr=1e-04)
 trainer = TopKastTrainer(net2,
                          loss2,
                          num_epochs_explore = 2,
                          update_every = 3,
                          batch_size = 5,
-                         patience= 20,
+                         patience = 20,
+                         optimizer = optimizer2,
                          data = data_synthetic)
 trainer.train()
 print("finished training RegularNet(2) for synthetic data")
 #%% now with boston which has 13 features
-# data_boston = boston_dataset()
-# #%%
-# net3 = RegularNet(13)
-# loss3 = TopKastLoss(loss=nn.MSELoss, net=net3, alpha=0.4)
-# trainer = TopKastTrainer(net3,
-#                          loss3,
-#                          num_epochs_explore = 2,
-#                          update_every = 3,
-#                          batch_size = 5,
-#                          patience= 20,
-#                          data = data_boston)
-# trainer.train()
-# print("finished training RegularNet(13) for boston data")
-# #%%
-# net4 = TopKastNet(13)
-# loss4 = TopKastLoss(loss=nn.MSELoss, net=net4, alpha=0.4)
-# trainer = TopKastTrainer(net4,
-#                          loss4,
-#                          num_epochs_explore = 2,
-#                          update_every = 3,
-#                          batch_size = 5,
-#                          patience= 20,
-#                          data = data_boston)
-# trainer.train()
-# print("finished training TopKastNet(13) for boston data")
-# trainer.eval()
+data_boston = boston_dataset()
+#%%
+net3 = RegularNet(13)
+loss3 = TopKastLoss(loss=nn.MSELoss, net=net3, alpha=0.4)
+optimizer3 = torch.optim.SGD(net3.parameters(), lr=1e-05)
+trainer = TopKastTrainer(net3,
+                         loss3,
+                         num_epochs_explore = 2,
+                         update_every = 3,
+                         batch_size = 5,
+                         patience = 20,
+                         optimizer = optimizer3,
+                         data = data_boston)
+trainer.train()
+print("finished training RegularNet(13) for boston data")
+#%%
+net4 = TopKastNet(13)
+loss4 = TopKastLoss(loss=nn.MSELoss, net=net4, alpha=0.4)
+optimizer4 = torch.optim.SGD(net4.parameters(), lr=1e-04)
+trainer = TopKastTrainer(net4,
+                         loss4,
+                         num_epochs_explore = 2,
+                         update_every = 3,
+                         batch_size = 5,
+                         patience = 20,
+                         optimizer = optimizer4,
+                         data = data_boston)
+trainer.train()
+print("finished training TopKastNet(13) for boston data")
+trainer.eval()
