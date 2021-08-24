@@ -15,7 +15,7 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
-import torch_sparse
+from torch_sparse import spmm
 
 #%% TopKast linear layer
 class TopKastLinear(nn.Module):
@@ -196,7 +196,7 @@ class TopKastLinear(nn.Module):
         Updates weight matrix for B\A and resets the corresponding weights in 
         the forward weight_vector
         """
-        self.weight[self.idx_justbwd] += self.active_fwd_weights.detach()[self.set_justbwd]
+        self.weight[self.just_backward] += self.active_fwd_weights.detach()[self.set_justbwd]
         with torch.no_grad():
             self.active_fwd_weights[self.set_justbwd] = 0
 
@@ -206,7 +206,7 @@ class TopKastLinear(nn.Module):
         if sparse:
             if self.training:
                 # Sparse training
-                output = torch_sparse.spmm(
+                output = spmm(
                     self.indices, 
                     self.active_fwd_weights, 
                     self.out_features, 
@@ -216,7 +216,7 @@ class TopKastLinear(nn.Module):
             else:
                 # Sparse forward pass without training
                 with torch.no_grad():
-                    output = torch_sparse.spmm(
+                    output = spmm(
                     self.indices, 
                     self.active_fwd_weights, 
                     self.out_features, 

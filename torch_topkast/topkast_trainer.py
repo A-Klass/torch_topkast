@@ -10,7 +10,9 @@ from copy import error
 import numpy as np
 import torch 
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split, Dataset
+
+import matplotlib.pyplot as plt
 
 # For now it is not 100% clear whether we can utilize nn.optim optimizers
 def sgd_custom(params, lr, batch_size):
@@ -42,8 +44,8 @@ class TopKastTrainer():
                  train_val_test_split: list = [.7, .2, .1],
                  patience: int = None,
                  optimizer: torch.optim = None,
-                 params_optimizer: dict = None,
-                 data = None,
+                 seed: float = 0,
+                 data: Dataset = None
                 #  loss_args
                  ):
         """
@@ -59,8 +61,9 @@ class TopKastTrainer():
             loss (TopKastLoss): loss function with regularization.
             train_val_test_split (list): split up data set in training, validation and test set.
             patience (int): early stopping if validation loss keeps not improving.
+            seed (float): Seed for the train/val/test split.
             optimizer (torch.nn.opim): optimizer from pytorch. not supported yet.
-            params_optimizer (dict) : named dict of parameters to pass on to optimizer.
+            data (torch.utils.data.Dataset): A dataset class with an overwritten `__getitem__()` Funktion.
         """
         # Init definitions and asserts
         
@@ -112,10 +115,10 @@ class TopKastTrainer():
             np.multiply(self.n_obs, train_val_test_split)).astype(int)
         
         self.train_dataset, self.validation_dataset, self.test_dataset = \
-        torch.utils.data.random_split(
+        random_split(
             self.data,
             (self.train_count, self.validation_count, self.test_count), 
-            generator=torch.Generator().manual_seed(42))
+            generator=torch.Generator().manual_seed(seed))
 
         self.train_dataset = DataLoader(
             self.train_dataset, 
@@ -123,14 +126,7 @@ class TopKastTrainer():
             shuffle=True, 
             num_workers=0)
         
-        # parameters for the optimizer
-        if optimizer is None:
-            self.optimizer = sgd_custom
-            self.lr = 0.001
-        else:
-            # self.optimizer = optimizer(params_optimizer)
-            raise ValueError('currently we only allow our self defined SGD')
-            self.optimizer = optimizer
+        self.optimizer = optimizer
             
         self.losses_validation = np.zeros(self.num_epochs)
         self.losses_train = np.zeros(self.num_epochs)
@@ -149,7 +145,12 @@ class TopKastTrainer():
                for layer in self.net.children():
                    if isinstance(layer, TopKastLinear):
                         layer.update_active_param_set()
-                        
+
+    def _reset_justbwd_weights(self) -> None:
+        for layer in self.net.children():
+            if isinstance(layer, TopKastLinear):
+                layer.reset_justbwd_weights()
+
     def train(self):
         for epoch in range(self.num_epochs):
             self._burn_in(epoch)
@@ -158,16 +159,11 @@ class TopKastTrainer():
                 y = y.float().reshape(-1, 1)
                 # Boston housing does not work here. can't figure out why self.net(X) is not working
                 y_hat = self.net(X)
-                # optimizer.zero_grad()
+                self.optimizer.zero_grad()
                 loss_epoch = self.loss(y_hat, y)
-                loss_epoch.sum().backward()
-                # optimizer.step()
-                self.optimizer(self.net.parameters(), 
-                               lr=self.lr, 
-                               batch_size=self.batch_size)
-                # for layer in net.children():
-                #     if isinstance(layer, TopKastLinear):
-                #         layer.update_backward_weights()
+                loss_epoch.backward()
+                self.optimizer.step()
+                self._reset_justbwd_weights()
                 # print(torch.linalg.norm(net.layer_in.weight_vector))
                 # print(torch.linalg.norm(net.layer_in.bias))
                 # print(torch.linalg.norm(net.layer_in.sparse_weights.grad.to_dense()))
@@ -195,10 +191,9 @@ class TopKastTrainer():
             print(self.losses_validation[1:(self.best_epoch)])
             print(self.losses_train[1:(self.best_epoch)])
 
-    # maybe we can include these methods as well?
-    def predict():
-        # something with no_grad()
-        pass
+    def predict(self, data):
+        with torch.no_grad():
+            return self.net(data)
     
     def eval(self, test_data = None):
         """
@@ -209,3 +204,10 @@ class TopKastTrainer():
                 self.net(self.test_dataset[:][0].float(), sparse=False), 
                 self.test_dataset[:][1].float().reshape(-1, 1))
             print(f'test loss' % test_loss)
+    
+    def plot_loss(self):
+        fig, axs = plt.subplots(2)
+        axs[0].plot(range(len(self.losses_train)), self.losses_train)
+        axs[0].set_title("training loss")
+        axs[1].plot(range(len(self.losses_validation)), self.losses_validation, color="red")
+        axs[1].set_title("validation loss")
