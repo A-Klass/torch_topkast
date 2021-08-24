@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from setuptools import setup, find_packages
+import torch
 
 with open('README.md') as f:
     readme = f.read()
@@ -7,13 +8,14 @@ with open('README.md') as f:
 # kudos: https://stackoverflow.com/a/16084844
 exec(open('_version.py').read())
 
-requirements = [
-    'matplotlib',
-    'numpy',
-    'sklearn',
-    'torch_scatter',
-    'torch_sparse']
 
+requirements = [
+    'matplotlib==3.4.2',
+    'numpy==1.19.5',
+    'sklearn==0.0', # boston housing data for testing
+    'torch>=1.8.1+cpu',
+    'torch_scatter==2.0.8', # needed for torch_sparse
+    'torch_sparse==0.6.11'] # efficient sparse matrix operations
 
 tests_require = ['unittest']
 
