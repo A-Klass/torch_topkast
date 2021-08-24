@@ -4,12 +4,8 @@ With burn in phase etc.
 """
 from torch_topkast.topkast_linear import TopKastLinear
 from torch_topkast.topkast_loss import TopKastLoss
-
-from copy import error
-
 import numpy as np
 import torch 
-import torch.nn as nn
 from torch.utils.data import DataLoader, random_split, Dataset
 
 import matplotlib.pyplot as plt
@@ -199,6 +195,7 @@ class TopKastTrainer():
     
     def plot_loss(self):
         fig, axs = plt.subplots(2)
+        plt.subplots_adjust(hspace = .5)
         axs[0].plot(range(len(self.losses_train)), self.losses_train)
         axs[0].set_title("training loss")
         axs[1].plot(range(len(self.losses_validation)), self.losses_validation, color="red")
