@@ -12,7 +12,6 @@ torch.nn.Sequential(
 #%% Imports
 
 import math
-import numpy as np
 import torch
 import torch.nn as nn
 from torch_sparse import spmm
