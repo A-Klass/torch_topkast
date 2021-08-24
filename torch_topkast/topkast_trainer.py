@@ -14,14 +14,6 @@ from torch.utils.data import DataLoader, random_split, Dataset
 
 import matplotlib.pyplot as plt
 
-# For now it is not 100% clear whether we can utilize nn.optim optimizers
-def sgd_custom(params, lr, batch_size):
-    """Minibatch stochastic gradient descent."""
-    with torch.no_grad():
-        for param in params:
-            param -= lr * param.grad / batch_size
-            param.grad.zero_()
-
 class TopKastTrainer():
     """
     This class executes the training procedure according to Jayakumar et al.(2021).
