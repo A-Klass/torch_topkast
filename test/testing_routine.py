@@ -162,7 +162,7 @@ kast_net, val_loss, train_loss, best_epoch, test_loss = train(
     loss=loss,
     # optimizer=optimizer, 
     batch_size=128,
-    patience=5)
+    patience=100)
 
 # %%
 plt.plot(range(len(val_loss)), val_loss, color="red", label="val_loss")

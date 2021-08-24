@@ -44,6 +44,8 @@ class TopKastLoss(nn.Module):
         penalty = torch.tensor(0.)
         
         for child in self.net.children():
+            
+            # breakpoint()
                          
             # If the loop encounters a TopKastLinear layer, it stops to compute 
             # the TopKast-specific penalty.
@@ -54,8 +56,10 @@ class TopKastLoss(nn.Module):
             if isinstance(child, TopKastLinear):
                 penalty += torch.linalg.norm(child.weight_vector[child.set_fwd])
                 # penalty += torch.linalg.norm(child.active_fwd_weights[child.set_fwd])
+                child.weight_vector.data[child.set_justbwd] = child.weight[child.idx_justbwd]                
                 penalty += (torch.linalg.norm(child.weight_vector[child.set_justbwd]) / # this is always 0: debug von vorn bis hinten. vllt kurz weights überschreiben oder so. 
                             (1 - child.p_forward))
+                child.weight_vector.data[child.set_justbwd] = 0.
                 # penalty += (torch.linalg.norm(child.active_fwd_weights[child.set_justbwd]) / # this is always 0: debug von vorn bis hinten. vllt kurz weights überschreiben oder so. 
                 #             (1 - child.p_forward))
             else:

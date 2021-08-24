@@ -4,9 +4,25 @@
 
 #%% Imports
 
-import numpy as np
-import TopKAST.topkast_linear as tk
-import TopKAST.topkast_loss as tkl
+# import numpy as np
+# from TopKAST.topkast_linear import TopKastLinear
+# from TopKAST.topkast_loss import TopKastLoss
+# import torch
+# import torch.nn as nn
+# import unittest
+
+import sys
+sys.path.insert(0, "./TopKAST")
+
+try:
+    from topkast_linear import TopKastLinear
+except ImportError:
+    raise SystemExit("not found. check your relative path")
+ 
+try:
+    from topkast_loss import TopKastLoss
+except ImportError:
+    raise SystemExit("not found. check your relative path")  
 import torch
 import torch.nn as nn
 import unittest
@@ -17,12 +33,12 @@ import unittest
 # are that no updates occur
 
 input_features = 10
-hidden_neurons = 128
+hidden_neurons = 16
 
 #%% define test objects
 
 def make_test_layer():
-    return tk.TopKastLinear(
+    return TopKastLinear(
         in_features=1000, 
         out_features=2, 
         p_forward=0.6,
@@ -33,7 +49,7 @@ def make_test_net():
     class NN(nn.Module):
             def __init__(self):
                 super().__init__()
-                self.layer_in = tk.TopKastLinear(
+                self.layer_in = TopKastLinear(
                     input_features, hidden_neurons, 0.6, 0.4)
                 self.activation = nn.ReLU()
                 self.layer_out = nn.Linear(hidden_neurons, 1)
@@ -42,6 +58,15 @@ def make_test_net():
                     self.layer_out(self.activation(self.layer_in(x))))
             
     return NN()
+
+#%% define optimizer
+
+def sgd(params, lr=0.1):
+    """Minibatch stochastic gradient descent."""
+    with torch.no_grad():
+        for param in params:
+            param -= lr * param.grad
+            param.grad.zero_()
 
 #%% define test runs
 
@@ -68,7 +93,6 @@ class TestTopKastLinear(unittest.TestCase):
         layer_tkl = make_test_layer()
         
         m = layer_tkl.compute_mask(layer_tkl.weight, layer_tkl.p_forward)
-        # TODO find better way to define tol
         tol = layer_tkl.p_forward * 0.01
         
         self.assertGreaterEqual(
@@ -77,6 +101,27 @@ class TestTopKastLinear(unittest.TestCase):
         self.assertLessEqual(
             1 - (len(m[0]) / layer_tkl.weight.numel()),
             layer_tkl.p_forward + tol)   
+        
+    def test_dense_weights_are_updated(self):
+        
+        net = make_test_net()
+        w_before = net.layer_in.weight.clone()
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
+        
+        n_obs = 2
+        X = torch.rand(n_obs * input_features).reshape(
+            n_obs, input_features).float()
+        y = torch.rand(n_obs).float().reshape(-1, 1)
+        
+        for i in range(10):
+            y_hat = net(X)
+            l = loss_tk(y_hat, y)
+            l.sum().backward()
+            sgd(net.parameters())
+            net.layer_in.update_active_param_set()
+
+        self.assertFalse(
+            torch.equal(net.layer_in.weight, w_before))
         
     # def test_justbwd_is_diff_between_bwd_and_fwd(self):
         
@@ -206,26 +251,48 @@ class TestTopKastLinear(unittest.TestCase):
 
 #%%
 
-# class TestTopKastLoss(unittest.TestCase):
+class TestTopKastLoss(unittest.TestCase):
     
-#     def test_penalty_is_l2(self):
+    def loss_is_differentiable(self):
+        
+        net = make_test_net()
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
+        
+        n_obs = 10
+        X = torch.rand(n_obs * input_features).reshape(
+            n_obs, input_features).float()
+        y = torch.rand(n_obs).float().reshape(-1, 1)
+        
+        y_hat = net(X)
+        l = loss_tk(y_hat, y)
+        print(net.layer_in.weight_vector)
+        l.sum().backward()
+        
+        self.assertIsNotNone(net.layer_in.weight_vector.grad)
+        self.assertIsNotNone(net.layer_in.bias.grad)
+        self.assertIsNotNone(net.layer_out.weight.grad)
+        self.assertIsNotNone(net.layer_out.bias.grad)  
+    
+    def test_penalty_is_l2(self):
 
-#         net = make_test_net()
-#         loss_tk = tkl.TopKastLoss(loss=nn.MSELoss, net=net)
+        net = make_test_net()
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
         
-#         penalty = loss_tk.compute_norm_active_set()
+        penalty = loss_tk.compute_norm_active_set()
         
-#         standard_norm_in = (
-#             torch.linalg.norm(net.layer_in.set_fwd) + 
-#             (torch.linalg.norm(net.layer_in.set_justbwd) / 
-#             (1 - net.layer_in.p_forward)))
+        w_fwd = net.layer_in.weight[net.layer_in.idx_fwd]
+        w_justbwd = net.layer_in.weight[net.layer_in.idx_justbwd]
         
-#         standard_norm_out = torch.linalg.norm(net.layer_out.weight)
+        standard_norm_in = (
+            torch.linalg.norm(w_fwd) + 
+            (torch.linalg.norm(w_justbwd) / (1 - net.layer_in.p_forward)))
         
-#         standard_norm = standard_norm_in + standard_norm_out
+        standard_norm_out = torch.linalg.norm(net.layer_out.weight)
         
-#         self.assertEqual(
-#             penalty.detach().numpy(), standard_norm.detach().numpy())
+        standard_norm = standard_norm_in + standard_norm_out
+        
+        self.assertEqual(
+            penalty.detach().numpy(), standard_norm.detach().numpy())
         
 #     def loss_is_differentiable(self):
         
