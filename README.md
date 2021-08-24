@@ -25,12 +25,12 @@ We compare runtimes and VRAM usage to demonstrate the benefits of our implementa
 - Python >=3.7 
 - NumPy >= 1.19.5
 - PyTorch >= 1.8.1
-- pytorch-sparse >= 0.6.11 (https://github.com/rusty1s/pytorch_sparse)
+- pytorch-sparse >= 0.6.11. Installing this is dependent on your local OS/PyTorch/CUDA combination, see (https://github.com/rusty1s/pytorch_sparse).
 
 ## Installation
 
 Local installation:
 1. Clone this repository.
-2. Install pytorch_sparse according to your specifications (https://github.com/rusty1s/pytorch_sparse).
+2. Make sure that PyTorch is installed (https://pytorch.org/get-started/locally/).
 3. Set working directory to where the repository has been copied to (`cd appl_deepl`).
 4. Run `pip install .` .
