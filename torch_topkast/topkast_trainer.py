@@ -33,8 +33,8 @@ class TopKastTrainer():
                  patience: int = None,
                  optimizer: torch.optim = None,
                  seed: float = 0,
-                 data: Dataset = None
-                #  loss_args
+                 data: Dataset = None,
+                 device: str = None
                  ):
         """
         Args:
@@ -51,10 +51,13 @@ class TopKastTrainer():
             patience (int): early stopping if validation loss keeps not improving.
             seed (float): Seed for the train/val/test split.
             optimizer (torch.nn.opim): optimizer from pytorch. not supported yet.
-            data (torch.utils.data.Dataset): A dataset class with an overwritten `__getitem__()` Funktion.
+            data (torch.utils.data.Dataset): A dataset class with a `__getitem__()` Funktion.
+            device (str): 'cpu' or 'cuda' depending on which should be trained.
         """
         # Init definitions and asserts
         
+        self.device = device
+
         self.net = topkast_net
         
         self.num_epochs = num_epochs
@@ -92,7 +95,6 @@ class TopKastTrainer():
         self.batch_size = batch_size
         #####################
     
-        # self.loss = loss(loss_args)
         self.loss = loss
         
         if len(train_val_test_split) < 3:
@@ -107,11 +109,17 @@ class TopKastTrainer():
             self.data,
             (self.train_count, self.validation_count, self.test_count), 
             generator=torch.Generator().manual_seed(seed))
+        
+        if self.device == 'cuda':
+            pin_memory = True
+        else:
+            pin_memory = False
 
         self.train_dataset = DataLoader(
             self.train_dataset, 
             batch_size=self.batch_size, 
-            shuffle=True, 
+            shuffle=True,
+            pin_memory=pin_memory,
             num_workers=0)
         
         self.optimizer = optimizer
@@ -143,22 +151,19 @@ class TopKastTrainer():
         for epoch in range(self.num_epochs):
             self._burn_in(epoch)
             for X, y in self.train_dataset:
-                X = X.float()
-                y = y.float().reshape(-1, 1)
+                X = X.float().to(self.device)
+                y = y.float().reshape(-1, 1).to(self.device)
                 y_hat = self.net(X)
                 self.optimizer.zero_grad()
                 loss_epoch = self.loss(y_hat, y)
                 loss_epoch.backward()
                 self.optimizer.step()
                 self._reset_justbwd_weights()
-                # print(torch.linalg.norm(net.layer_in.weight_vector))
-                # print(torch.linalg.norm(net.layer_in.bias))
-                # print(torch.linalg.norm(net.layer_in.sparse_weights.grad.to_dense()))
                 self.losses_train[epoch] += loss_epoch / len(y)
             with torch.no_grad(): 
                 self.losses_validation[epoch] = self.loss(
-                    self.net(self.validation_dataset[:][0].float(), sparse=False), 
-                    self.validation_dataset[:][1].float().reshape(-1, 1))
+                    self.net(self.validation_dataset[:][0].float().to(self.device), sparse=False), 
+                    self.validation_dataset[:][1].float().to(self.device).reshape(-1, 1))
             if (epoch + 1) % self.print_info_every == 0:
                 print(f'epoch {epoch + 1}, val loss {self.losses_validation[epoch]:f} train loss {self.losses_train[epoch]:f}')  
         
@@ -188,8 +193,8 @@ class TopKastTrainer():
         """
         with torch.no_grad():
             test_loss = self.loss(
-                self.net(self.test_dataset[:][0].float(), sparse=False), 
-                self.test_dataset[:][1].float().reshape(-1, 1))
+                self.net(self.test_dataset[:][0].float().to(self.device), sparse=False), 
+                self.test_dataset[:][1].float().to(self.device).reshape(-1, 1))
             print(f'test loss {test_loss}')
     
     def plot_loss(self):
