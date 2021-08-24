@@ -177,7 +177,7 @@ class TopKastLinear(nn.Module):
             self.weight[self.idx_fwd] = self.active_fwd_weights.detach()[self.set_fwd]       
         self.idx_fwd = self.compute_mask(self.weight, self.p_forward)
         self.idx_bwd = self.compute_mask(self.weight, self.p_backward)
-        self.just_backward = self.compute_just_bwd()
+        self.idx_justbwd = self.compute_just_bwd()
         
         # The vector of active weights for the forward pass contains the 
         # ones from A as well as placeholders for B\A with value=0.00.
@@ -185,9 +185,9 @@ class TopKastLinear(nn.Module):
         # to update values in-place.
         self.active_fwd_weights = nn.Parameter(
             torch.cat((self.weight[self.idx_fwd].detach(),
-                       torch.zeros(len(self.just_backward[0])).detach()))) # paddings for B\A
-        self.indices = (torch.cat((self.idx_fwd[0], self.just_backward[0])), 
-                        torch.cat((self.idx_fwd[1], self.just_backward[1])))
+                       torch.zeros(len(self.idx_justbwd[0])).detach()))) # paddings for B\A
+        self.indices = (torch.cat((self.idx_fwd[0], self.idx_justbwd[0])), 
+                        torch.cat((self.idx_fwd[1], self.idx_justbwd[1])))
         
         self.set_fwd = range(len(self.idx_fwd[0]))
         self.set_justbwd = range(len(self.idx_fwd[0]), len(self.active_fwd_weights))        
@@ -197,7 +197,7 @@ class TopKastLinear(nn.Module):
         Updates weight matrix for B\A and resets the corresponding weights in 
         the forward weight_vector
         """
-        self.weight[self.just_backward] += self.active_fwd_weights.detach()[self.set_justbwd]
+        self.weight[self.idx_justbwd] += self.active_fwd_weights.detach()[self.set_justbwd]
         with torch.no_grad():
             self.active_fwd_weights[self.set_justbwd] = 0
 
