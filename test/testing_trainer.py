@@ -6,12 +6,8 @@ from torch_topkast.topkast_linear import TopKastLinear
 from torch_topkast.topkast_loss import TopKastLoss
 from torch_topkast.topkast_trainer import TopKastTrainer
 import torch
-from torch.utils.data import DataLoader
-import numpy as np
-import copy
 import torch.nn as nn
-import matplotlib.pyplot as plt
-from test_data import *
+
 #%%
 # Setup a small vanilla net to compare against
 class RegularNet(nn.Module):
@@ -66,7 +62,7 @@ trainer = TopKastTrainer(net1,
                          data = data_synthetic)
 # and call training method
 trainer.train()
-print("finished training RegularNet(2) for synthetic data")
+print("finished training TopKastNet(2) for synthetic data")
 #%% 
 net2 = RegularNet(2)
 loss2 = TopKastLoss(loss=nn.MSELoss, net=net2, alpha=0.4)
