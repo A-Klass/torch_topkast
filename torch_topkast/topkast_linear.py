@@ -131,7 +131,8 @@ class TopKastLinear(nn.Module):
             p(float): self.p_forward; p-quantile
             
         Returns:
-            mask as tuple torch.Tensor with indices
+            mask as torch.Tensor tuple containing indices of
+            matrix' biggest values
         """
         threshold = torch.quantile(torch.abs(matrix), p)
         return torch.where(torch.abs(matrix) >= threshold)
@@ -201,7 +202,6 @@ class TopKastLinear(nn.Module):
             self.active_fwd_weights[self.set_justbwd] = 0
 
     # Define forward pass
-    
     def forward(self, inputs, sparse=True):
         if sparse:
             if self.training:
@@ -233,3 +233,4 @@ class TopKastLinear(nn.Module):
                     inputs.t()).t()
         
         return output
+# %%
