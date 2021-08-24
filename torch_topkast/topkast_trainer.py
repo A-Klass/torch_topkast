@@ -195,7 +195,7 @@ class TopKastTrainer():
             test_loss = self.loss(
                 self.net(self.test_dataset[:][0].float(), sparse=False), 
                 self.test_dataset[:][1].float().reshape(-1, 1))
-            print(f'test loss' % test_loss)
+            print(f'test loss {test_loss}')
     
     def plot_loss(self):
         fig, axs = plt.subplots(2)
