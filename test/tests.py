@@ -4,10 +4,8 @@
 
 #%% Imports
 
-import numpy as np
 from torch_topkast.topkast_linear import TopKastLinear
 from torch_topkast.topkast_loss import TopKastLoss
-from torch_topkast.topkast_trainer import TopKastTrainer
 import torch
 import torch.nn as nn
 import torch.optim
@@ -189,24 +187,19 @@ class TestTopKastLinear(unittest.TestCase):
 
 class TestTopKastLoss(unittest.TestCase):
     
-#     def test_penalty_is_l2(self):
-
-#         net = make_test_net()
-#         loss_tk = tkl.TopKastLoss(loss=nn.MSELoss, net=net)
+    def test_penalty_is_l2(self):
         
-#         penalty = loss_tk.compute_norm_active_set()
+        net = make_test_net()
         
-#         standard_norm_in = (
-#             torch.linalg.norm(net.layer_in.set_fwd) + 
-#             (torch.linalg.norm(net.layer_in.set_justbwd) / 
-#             (1 - net.layer_in.p_forward)))
+        norm_fwd = torch.linalg.norm(
+            net.layer_in.active_fwd_weights[net.layer_in.set_fwd])
+        norm_justbwd = (
+            torch.linalg.norm(
+                net.layer_in.weight[net.layer_in.idx_justbwd]) / 
+            (1 - net.layer_in.p_forward))
         
-#         standard_norm_out = torch.linalg.norm(net.layer_out.weight)
-        
-#         standard_norm = standard_norm_in + standard_norm_out
-        
-#         self.assertEqual(
-#             penalty.detach().numpy(), standard_norm.detach().numpy())
+        self.assertNotEqual(norm_fwd.item(), 0.)  
+        self.assertNotEqual(norm_justbwd.item(), 0.)  
         
     def loss_is_differentiable(self):
         
