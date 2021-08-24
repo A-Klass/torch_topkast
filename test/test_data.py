@@ -1,6 +1,7 @@
 from sklearn import datasets
 import torch
 from torch.utils.data import Dataset
+
 class boston_dataset(Dataset):
     """Boston dataset."""
 
