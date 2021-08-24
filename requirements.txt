@@ -1,7 +1,0 @@
-matplotlib==3.4.2
-numpy==1.19.5
-sklearn==0.0 # boston housing data for testing
---find-links https://download.pytorch.org/whl/torch_stable.html
-torch==1.8.1+cpu
-#torch-scatter==2.0.8
-torch-sparse==0.6.11 # efficient sparse matrix operations
