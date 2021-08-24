@@ -145,7 +145,6 @@ class TopKastTrainer():
             for X, y in self.train_dataset:
                 X = X.float()
                 y = y.float().reshape(-1, 1)
-                # Boston housing does not work here. can't figure out why self.net(X) is not working
                 y_hat = self.net(X)
                 self.optimizer.zero_grad()
                 loss_epoch = self.loss(y_hat, y)

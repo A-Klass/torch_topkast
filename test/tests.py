@@ -10,6 +10,7 @@ from torch_topkast.topkast_loss import TopKastLoss
 from torch_topkast.topkast_trainer import TopKastTrainer
 import torch
 import torch.nn as nn
+import torch.optim
 import unittest
 
 #%% set testing params
@@ -18,14 +19,14 @@ import unittest
 # are that no updates occur
 
 input_features = 10
-hidden_neurons = 128
+hidden_neurons = 16
 
 #%% define test objects
 
 def make_test_layer():
     return TopKastLinear(
-        in_features=1000, 
-        out_features=2, 
+        in_features=input_features, 
+        out_features=hidden_neurons, 
         p_forward=0.6,
         p_backward=0.4,
         bias=True)
@@ -54,8 +55,7 @@ class TestTopKastLinear(unittest.TestCase):
         layer_tkl.reset_parameters()
         
         for param in [layer_tkl.weight, layer_tkl.bias]:
-            sum_elements = param.detach().numpy().flatten().sum()
-            self.assertNotAlmostEqual(sum_elements, 0)
+            self.assertFalse(all(param.detach().numpy().flatten() == 0.))
             
     def test_weights_have_grads(self):
         
@@ -71,12 +71,28 @@ class TestTopKastLinear(unittest.TestCase):
         m = layer_tkl.compute_mask(layer_tkl.weight, layer_tkl.p_forward)
         tol = layer_tkl.p_forward * 0.01
         
-        self.assertGreaterEqual(
-            1 - (len(m[0]) / layer_tkl.weight.numel()), 
-            layer_tkl.p_forward - tol)
         self.assertLessEqual(
-            1 - (len(m[0]) / layer_tkl.weight.numel()),
-            layer_tkl.p_forward + tol)   
+            abs(1 - (len(m[0]) / layer_tkl.weight.numel()) - 
+                layer_tkl.p_forward), 
+            tol)
+        
+    def test_right_weights_are_masked(self):
+        
+        layer_tkl = make_test_layer()
+                
+        layer_tkl.weight = torch.arange(
+            layer_tkl.weight.numel(), dtype=torch.float32)
+        layer_tkl.weight = layer_tkl.weight.reshape(
+            layer_tkl.out_features, layer_tkl.in_features)
+        
+        m = layer_tkl.compute_mask(layer_tkl.weight, layer_tkl.p_forward)
+        
+        self.assertEqual(
+            layer_tkl.weight[m][0].item(),
+            layer_tkl.weight.numel() * layer_tkl.p_forward)
+        self.assertEqual(
+            layer_tkl.weight[m][m[0].numel() - 1].item(),
+            layer_tkl.weight.numel() - 1.)
         
     def test_justbwd_has_right_size(self):
         
@@ -95,171 +111,83 @@ class TestTopKastLinear(unittest.TestCase):
         w_before = net.layer_in.weight.clone()
         loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
         
-        n_obs = 1000
+        n_obs = 10
         X = torch.rand(n_obs * input_features).reshape(
             n_obs, input_features).float()
         y = torch.rand(n_obs).float().reshape(-1, 1)
+        optimizer = torch.optim.SGD(net.parameters(), lr=1e-3)
         
         for i in range(10):
+            optimizer.zero_grad()
             y_hat = net(X)
             l = loss_tk(y_hat, y)
             l.sum().backward()
-            sgd(net.parameters())
+            optimizer.step()
             net.layer_in.update_active_param_set()
+            net.layer_in.reset_justbwd_weights()
+            i += 1
 
         self.assertFalse(
             torch.equal(net.layer_in.weight, w_before))
         
     def test_sparse_weights_are_updated(self):
-              
+        
         net = make_test_net()
-        w_sparse_before = net.layer_in.weight_vector.clone()
+        w_before = net.layer_in.active_fwd_weights.clone()
         loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
         
-        n_obs = 1000
+        n_obs = 10
         X = torch.rand(n_obs * input_features).reshape(
             n_obs, input_features).float()
         y = torch.rand(n_obs).float().reshape(-1, 1)
+        optimizer = torch.optim.SGD(net.parameters(), lr=1e-3)
         
-        for i in range(100):
+        for i in range(10):
+            optimizer.zero_grad()
             y_hat = net(X)
             l = loss_tk(y_hat, y)
             l.sum().backward()
-            sgd(net.parameters())
+            optimizer.step()
             net.layer_in.update_active_param_set()
-        
+            net.layer_in.reset_justbwd_weights()
+            i += 1
+
         self.assertFalse(
-            torch.equal(net.layer_in.weight_vector, w_sparse_before))
+            torch.equal(net.layer_in.active_fwd_weights, w_before))
         
-    # def test_justbwd_is_diff_between_bwd_and_fwd(self):
+    def test_forward_active_set_is_updated(self):
         
-    #     layer_tkl = make_test_layer()
+        net = make_test_net()
+        idx_fwd_before = net.layer_in.idx_fwd
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
         
-    #     fwd = np.sort(layer_tkl.set_fwd)
-    #     bwd = np.sort(layer_tkl.set_bwd)
-    #     justbwd = np.sort(layer_tkl.set_justbwd)
+        n_obs = 10
+        X = torch.rand(n_obs * input_features).reshape(
+            n_obs, input_features).float()
+        y = torch.rand(n_obs).float().reshape(-1, 1)
+        optimizer = torch.optim.SGD(net.parameters(), lr=1e-3)
         
-    #     tol = layer_tkl.weight.numel() * 0.001
-    #     if tol < 0:
-    #         tol = 1
-        
-    #     self.assertTrue(len(bwd) - len(fwd) == len(justbwd))
-    #     self.assertTrue(len(justbwd) == len(np.intersect1d(justbwd, bwd)))
-    #     self.assertLessEqual(len(np.intersect1d(justbwd, fwd)), tol)
-        
-    # def test_sparse_weights_are_updated(self):
-        
-    #     def sgd(params, lr=0.1):
-    #         """Minibatch stochastic gradient descent."""
-    #         with torch.no_grad():
-    #             for param in params:
-    #                 param -= lr * param.grad
-    #                 param.grad.zero_()
-        
-    #     net = make_test_net()
-    #     w_sparse_before = net.layer_in.weight_vector.clone()
-    #     w_before = net.layer_out.weight.clone()
-    #     loss_tk = tkl.TopKastLoss(loss=nn.MSELoss, net=net)
-        
-    #     X = torch.rand(2 * input_features).reshape(2, input_features).float()
-    #     y = torch.rand(2).float().reshape(-1, 1)
-    #     y_hat = net(X)
-        
-    #     l = loss_tk(y_hat, y)
-    #     l.sum().backward()
-    #     sgd(net.parameters())
-        
-    #     self.assertFalse(
-    #         torch.equal(net.layer_in.weight_vector, w_sparse_before))
-    #     self.assertFalse(
-    #         torch.equal(net.layer_out.weight, w_before))
-        
-    # def test_forward_active_set_is_updated(self):
-        
-    #     def sgd(params, lr=0.1):
-    #         """Minibatch stochastic gradient descent."""
-    #         with torch.no_grad():
-    #             for param in params:
-    #                 param -= lr * param.grad
-    #                 param.grad.zero_()
-        
-    #     net = make_test_net()
-    #     set_fwd_before = net.layer_in.set_fwd
-    #     loss_tk = tkl.TopKastLoss(loss=nn.MSELoss, net=net)
-        
-    #     X = torch.rand(2 * input_features).reshape(2, input_features).float()
-    #     y = torch.rand(2).float().reshape(-1, 1)
-    #     y_hat = net(X)
-        
-    #     l = loss_tk(y_hat, y)
-    #     l.sum().backward()
-    #     sgd(net.parameters())
-        
-    #     net.layer_in.update_active_param_set()
-        
-    #     self.assertFalse(
-    #         torch.equal(net.layer_in.set_fwd, set_fwd_before))
-        
-    # def test_backward_active_set_is_updated(self):
-        
-    #     def sgd(params, lr=0.1):
-    #         """Minibatch stochastic gradient descent."""
-    #         with torch.no_grad():
-    #             for param in params:
-    #                 param -= lr * param.grad
-    #                 param.grad.zero_()
-        
-    #     net = make_test_net()
-    #     set_bwd_before = net.layer_in.set_bwd
-    #     loss_tk = tkl.TopKastLoss(loss=nn.MSELoss, net=net)
-        
-    #     X = torch.rand(2 * input_features).reshape(2, input_features).float()
-    #     y = torch.rand(2).float().reshape(-1, 1)
-    #     y_hat = net(X)
-        
-    #     l = loss_tk(y_hat, y)
-    #     l.sum().backward()
-    #     sgd(net.parameters())
-        
-    #     net.layer_in.update_active_param_set()
-
-    #     self.assertFalse(
-    #         torch.equal(net.layer_in.set_bwd, set_bwd_before))
-        
-    # def test_dense_weights_are_updated(self):
-        
-    #     def sgd(params, lr=0.1):
-    #         """Minibatch stochastic gradient descent."""
-    #         with torch.no_grad():
-    #             for param in params:
-    #                 param -= lr * param.grad
-    #                 param.grad.zero_()
-        
-    #     net = make_test_net()
-    #     w_before = net.layer_in.weight.clone()
-    #     loss_tk = tkl.TopKastLoss(loss=nn.MSELoss(), net=net)
-    #     # loss_tk = nn.MSELoss()
-        
-    #     X = torch.rand(2 * input_features).reshape(2, input_features).float()
-    #     y = torch.rand(2).float().reshape(-1, 1)
-    #     y_hat = net(X)
-        
-    #     l = loss_tk(y_hat, y)
-    #     l.sum().backward()
-        
-    #     # for param in net.parameters():
-    #     #     print(param.grad)
+        for i in range(10):
+            optimizer.zero_grad()
+            y_hat = net(X)
+            l = loss_tk(y_hat, y)
+            l.sum().backward()
+            optimizer.step()
+            net.layer_in.update_active_param_set()
+            net.layer_in.weight += torch.rand_like(net.layer_in.weight)
+            net.layer_in.reset_justbwd_weights()
+            i += 1
             
-    #     # sgd(net.parameters())
-        
-    #     # net.layer_in.update_active_param_set()
-
-    #     self.assertFalse(
-    #         torch.equal(net.layer_in.weight, w_before))
+        a = torch.zeros_like(net.layer_in.weight)
+        b = torch.zeros_like(net.layer_in.weight)
+        a[net.layer_in.idx_fwd] = 1
+        b[idx_fwd_before] = 1
+            
+        self.assertFalse(torch.equal(a, b))
 
 #%%
 
-# class TestTopKastLoss(unittest.TestCase):
+class TestTopKastLoss(unittest.TestCase):
     
 #     def test_penalty_is_l2(self):
 
@@ -280,38 +208,52 @@ class TestTopKastLinear(unittest.TestCase):
 #         self.assertEqual(
 #             penalty.detach().numpy(), standard_norm.detach().numpy())
         
-#     def loss_is_differentiable(self):
+    def loss_is_differentiable(self):
         
-#         net = make_test_net()
-#         loss_tk = tkl.TopKastLoss(loss=nn.MSELoss, net=net)
+        net = make_test_net()
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
         
-#         l = loss_tk(torch.rand(10), torch.rand(10), net)
-#         l.sum().backward()
+        n_obs = 10
+        X = torch.rand(n_obs * input_features).reshape(
+            n_obs, input_features).float()
+        y = torch.rand(n_obs).float().reshape(-1, 1)
+        optimizer = torch.optim.SGD(net.parameters(), lr=1e-3)
         
-#         for i in net.children():
-
-#             self.assertEqual(i.weight.grad.shape[0], i.in_features)
-#             self.assertEqual(i.weight.grad.shape[1], i.out_features)
-#             self.assertNotNone(i.bias.grad)       
+        optimizer.zero_grad()
+        y_hat = net(X)
+        l = loss_tk(y_hat, y)
+        l.sum().backward()
+        optimizer.step()
+        
+        for param in net.parameters():
+            self.assertNotNone(param.grad)      
             
-#     def gradient_has_right_sparsity(self):
+    def gradient_has_right_sparsity(self):
         
-#         net = make_test_net()
-#         loss_tk = tkl.TopKastLoss(loss=nn.MSELoss, net=net)
+        net = make_test_net()
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
         
-#         l = loss_tk(torch.rand(10), torch.rand(10), net)
-#         l.sum().backward()
+        n_obs = 10
+        X = torch.rand(n_obs * input_features).reshape(
+            n_obs, input_features).float()
+        y = torch.rand(n_obs).float().reshape(-1, 1)
+        optimizer = torch.optim.SGD(net.parameters(), lr=1e-3)
         
-#         is_zero = (net.layer_in.weight.grad == 0.)
-#         # TODO find better way to define tol
-#         tol = net.layer_in.p_backward * 0.01
+        for i in range(10):
+            optimizer.zero_grad()
+            y_hat = net(X)
+            l = loss_tk(y_hat, y)
+            l.sum().backward()
+            is_zero = (net.layer_in.active_fwd_weights.grad == 0.)
+            optimizer.step()
+            net.layer_in.update_active_param_set()
+            net.layer_in.weight += torch.rand_like(net.layer_in.weight)
+            net.layer_in.reset_justbwd_weights()
+            i += 1
         
-#         self.assertGreaterEqual(
-#             is_zero.sum() / is_zero.numel(),
-#             torch.tensor(net.layer_in.p_backward - tol))
-#         self.assertLessEqual(
-#             is_zero.sum() / is_zero.numel(),
-#             torch.tensor(net.layer_in.p_backward + tol))
+        self.assertLessEqual(
+            abs(is_zero.sum() / is_zero.numel() - net.layer_in.p_backward),
+            torch.tensor(0.1))
 
 #%%
         
