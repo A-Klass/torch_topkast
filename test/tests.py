@@ -221,7 +221,7 @@ class TestTopKastLoss(unittest.TestCase):
         for param in net.parameters():
             self.assertNotNone(param.grad)      
             
-    def gradient_has_right_sparsity(self):
+    def all_backward_weights_are_updated(self):
         
         net = make_test_net()
         loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
@@ -244,9 +244,7 @@ class TestTopKastLoss(unittest.TestCase):
             net.layer_in.reset_justbwd_weights()
             i += 1
         
-        self.assertLessEqual(
-            abs(is_zero.sum() / is_zero.numel() - net.layer_in.p_backward),
-            torch.tensor(0.1))
+        self.assertEqual(is_zero.sum().item(), 0)
 
 #%%
         

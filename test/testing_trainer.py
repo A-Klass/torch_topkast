@@ -54,11 +54,11 @@ optimizer1 = torch.optim.SGD(net1.parameters(), lr=1e-03)
 # Instantiate a TopKast trainer
 trainer = TopKastTrainer(net1,
                          loss1,
-                         num_epochs=100,
+                         num_epochs=200,
                          num_epochs_explore = 100,
                          update_every = 3,
                          batch_size = 128,
-                         patience = 50,
+                         patience = 20,
                          optimizer = optimizer1,
                          data = data_synthetic)
 #%% 
