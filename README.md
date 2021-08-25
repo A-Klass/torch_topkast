@@ -12,7 +12,7 @@ Selecting the active parameter subset is done by identifying the Top-K biggest w
 ## Installation
 
 Local installation:
-1. Make sure that PyTorch is installed (https://pytorch.org/get-started/locally/).
+1. Make sure that PyTorch is installed (see https://pytorch.org/get-started/locally/).
 2. Clone this repository.
 3. Set working directory to where the repository has been copied to (`cd appl_deepl`).
 4. Run `pip install .` .
