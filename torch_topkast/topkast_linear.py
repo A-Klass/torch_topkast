@@ -183,8 +183,8 @@ class TopKastLinear(nn.Module):
         self.active_fwd_weights = nn.Parameter(
             torch.cat((self.weight[self.idx_fwd].detach(),
                        torch.zeros(len(self.idx_justbwd[0]), device=self.device)))) # paddings for B\A
-        self.indices = torch.cat((torch.cat((self.idx_fwd[0], self.just_backward[0])).reshape(1,-1), 
-                        torch.cat((self.idx_fwd[1], self.just_backward[1])).reshape(1,-1)), 0).to(self.device)
+        self.indices = torch.cat((torch.cat((self.idx_fwd[0], self.idx_justbwd[0])).reshape(1,-1), 
+                        torch.cat((self.idx_fwd[1], self.idx_justbwd[1])).reshape(1,-1)), 0).to(self.device)
         
         self.set_fwd = range(len(self.idx_fwd[0]))
         self.set_justbwd = range(len(self.idx_fwd[0]), len(self.active_fwd_weights))        

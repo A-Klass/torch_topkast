@@ -57,13 +57,9 @@ class TopKastTrainer():
         # Init definitions and asserts
         
         self.device = device
-
         self.net = topkast_net
-        
         self.num_epochs = num_epochs
-
         self.print_info_every = print_info_every
-        
         self.print_loss_history = print_loss_history
         
         if num_epochs_explore is None:
@@ -110,10 +106,7 @@ class TopKastTrainer():
             (self.train_count, self.validation_count, self.test_count), 
             generator=torch.Generator().manual_seed(seed))
         
-        if self.device == 'cuda':
-            pin_memory = True
-        else:
-            pin_memory = False
+        pin_memory = True if self.device == 'cuda' else False
 
         self.train_dataset = DataLoader(
             self.train_dataset, 
