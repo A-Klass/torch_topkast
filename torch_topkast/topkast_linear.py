@@ -201,7 +201,6 @@ class TopKastLinear(nn.Module):
         if sparse:
             if self.training:
                 # Sparse training
-                # breakpoint()
                 output = spmm(
                     self.indices, 
                     self.active_fwd_weights, 
@@ -220,8 +219,8 @@ class TopKastLinear(nn.Module):
                     inputs.t()).t()
                     output += self.bias
         else:
-            # Dense training is not possible, only a dense forward pass for 
-            # prediction
+            # Dense training is not possible, we only allow 
+            # a dense forward pass for prediction
             with torch.no_grad():
                 output = torch.addmm(
                     self.bias.unsqueeze(1), 
