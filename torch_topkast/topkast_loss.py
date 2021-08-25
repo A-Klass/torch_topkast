@@ -1,24 +1,30 @@
-# %%
-from torch_topkast.topkast_linear import TopKastLinear
-  
+#%% Imports
+
+from torch_topkast.topkast_linear import TopKastLinear  
 import torch
 import torch.nn as nn
+from typing import Optional
 
 #%%
 class TopKastLoss(nn.Module):
     """
     Takes a normal torch.nn.loss and then adds the discounted (alpha) 
-    L2-norm of all active(!) parameters. Goes through all the layers of the net 
-    and looks for TopkLinear layers and only takes the appropriate weights.
-    If the net doesn't have any TopKastLinear layers this is just a L2 weighted loss.
+    L2-norm of all active(!) parameters. Goes through all the layers of the 
+    net and looks for TopkLinear layers and only takes the appropriate weights.
+    If the net doesn't have any TopKastLinear layers, this is just an 
+    L2-weighted loss.
     """
-    def __init__(self, loss, net, alpha=1, device=None) -> None:
+    def __init__(self, 
+                 loss: torch.nn.Module, 
+                 net: torch.nn.Module, 
+                 alpha: int=1, 
+                 device: Optional[torch.device]=None) -> None:
         """
             Args:
                 loss(torch.nn.Module): Loss function from torch
                 net(TopKastNet): a net with TopKast layers
-                alpha(float): penalty applied for active paramters in A. Acts as a
-                              regularization tool.
+                alpha(float): penalty applied for active paramters in A. 
+                Acts as regularization tool.
         """
 
         super(TopKastLoss, self).__init__()
@@ -30,8 +36,9 @@ class TopKastLoss(nn.Module):
     
     def compute_norm_active_set(self):
         """
-        Computes the L2-norms for the active weights in the forward pass and the weighted
-        L2-norm of the weights that are added in the backward pass.
+        Computes the L2 norm for the active weights in the forward pass and 
+        the weighted L2 norm of the weights that are added in the backward 
+        pass.
         """
         
         penalty = torch.tensor(0., device=self.device)
@@ -59,7 +66,6 @@ class TopKastLoss(nn.Module):
         return penalty
     
     def forward(self, y_hat, y):
-        
         l = self.loss(y_hat, y) 
         l += self.alpha * self.compute_norm_active_set()
 
