@@ -203,6 +203,7 @@ class TopKastLinear(nn.Module):
         if sparse:
             if self.training:
                 # Sparse training
+                # breakpoint()
                 output = spmm(
                     self.indices, 
                     self.active_fwd_weights, 
