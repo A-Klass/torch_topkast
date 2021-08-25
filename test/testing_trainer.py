@@ -10,6 +10,9 @@ import torch.nn as nn
 from test_data import *
 
 #%%
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(device)
+#%%
 # Setup a small vanilla net to compare against
 class RegularNet(nn.Module):
     def __init__(self, in_features):
@@ -30,13 +33,12 @@ class TopKastNet(nn.Module):
     def __init__(self, in_features):
         super().__init__()
         self.layer_in = TopKastLinear(
-            in_features, 128, p_forward=0.6, p_backward=0.5)
+            in_features, 128, p_forward=0.6, p_backward=0.5, device=device)
         self.activation = nn.ReLU()
         self.hidden1 = TopKastLinear(
-            128, 128, p_forward=0.7, p_backward=0.5)
+            128, 128, p_forward=0.7, p_backward=0.5, device=device)
         self.layer_out = TopKastLinear(
-            128, 1,
-            p_forward=0.6, p_backward=0.5)
+            128, 1, p_forward=0.6, p_backward=0.5, device=device)
 
     def forward(self, X, sparse=True):
         y = self.layer_in(X, sparse=sparse)
@@ -104,7 +106,7 @@ print("finished training RegularNet(13) for boston data")
 #%%
 net4 = TopKastNet(13)
 loss4 = TopKastLoss(loss=nn.MSELoss, net=net4, alpha=0.4)
-optimizer4 = torch.optim.Adam(net4.parameters(), lr=1e-02)
+optimizer4 = torch.optim.Adam(net4.parameters(), lr=1e-01)
 trainer = TopKastTrainer(net4,
                          loss4,
                          num_epochs=200,

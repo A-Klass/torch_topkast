@@ -13,8 +13,8 @@ import unittest
 
 #%% set testing params
 
-# tests only run for certain magnitudes: for very small inputs/nets, chances 
-# are that no updates occur
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(device)
 
 input_features = 10
 hidden_neurons = 16
@@ -27,14 +27,15 @@ def make_test_layer():
         out_features=hidden_neurons, 
         p_forward=0.6,
         p_backward=0.4,
-        bias=True)
+        bias=True,
+        device=device)
 
 def make_test_net():
     class NN(nn.Module):
             def __init__(self):
                 super().__init__()
                 self.layer_in = TopKastLinear(
-                    input_features, hidden_neurons, 0.6, 0.4)
+                    input_features, hidden_neurons, 0.6, 0.4, device=device)
                 self.activation = nn.ReLU()
                 self.layer_out = nn.Linear(hidden_neurons, 1)
             def forward(self, x):
