@@ -40,7 +40,7 @@ class TopKastLinear(nn.Module):
                  p_forward: float, 
                  p_backward: float, 
                  bias: bool=True, 
-                 device=None, 
+                 device: torch.device = None, 
                  dtype=None) -> None:
         """ Initialize the layer
         Note:
