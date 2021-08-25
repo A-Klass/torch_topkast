@@ -61,12 +61,9 @@ trainer = TopKastTrainer(net1,
                          patience = 20,
                          optimizer = optimizer1,
                          data = data_synthetic)
-#%% 
+#%% and call training method
 trainer.train()
 trainer.plot_loss()
-#%% 
-# and call training method
-trainer.train()
 print("finished training TopKastNet(2) for synthetic data")
 #%% 
 net2 = RegularNet(2)
@@ -74,42 +71,51 @@ loss2 = TopKastLoss(loss=nn.MSELoss, net=net2, alpha=0.4)
 optimizer2 = torch.optim.SGD(net2.parameters(), lr=1e-04)
 trainer = TopKastTrainer(net2,
                          loss2,
-                         num_epochs_explore = 2,
+                         num_epochs=200,
+                         num_epochs_explore = 100,
                          update_every = 3,
-                         batch_size = 5,
+                         batch_size = 128,
                          patience = 20,
                          optimizer = optimizer2,
                          data = data_synthetic)
+#%% and call training method
 trainer.train()
+trainer.plot_loss()
 print("finished training RegularNet(2) for synthetic data")
 #%% now with boston which has 13 features
 data_boston = boston_dataset()
 #%%
 net3 = RegularNet(13)
 loss3 = TopKastLoss(loss=nn.MSELoss, net=net3, alpha=0.4)
-optimizer3 = torch.optim.SGD(net3.parameters(), lr=1e-05)
+optimizer3 = torch.optim.SGD(net3.parameters(), lr=1e-06)
 trainer = TopKastTrainer(net3,
                          loss3,
-                         num_epochs_explore = 2,
+                         num_epochs=200,
+                         num_epochs_explore = 100,
                          update_every = 3,
-                         batch_size = 5,
+                         batch_size = 128,
                          patience = 20,
                          optimizer = optimizer3,
                          data = data_boston)
+#%% and call training method
 trainer.train()
+trainer.plot_loss()
 print("finished training RegularNet(13) for boston data")
 #%%
 net4 = TopKastNet(13)
 loss4 = TopKastLoss(loss=nn.MSELoss, net=net4, alpha=0.4)
-optimizer4 = torch.optim.SGD(net4.parameters(), lr=1e-04)
+optimizer4 = torch.optim.Adam(net4.parameters(), lr=1e-02)
 trainer = TopKastTrainer(net4,
                          loss4,
-                         num_epochs_explore = 2,
+                         num_epochs=200,
+                         num_epochs_explore = 100,
                          update_every = 3,
-                         batch_size = 5,
+                         batch_size = 128,
                          patience = 20,
                          optimizer = optimizer4,
                          data = data_boston)
+#%% and call training method
 trainer.train()
+trainer.plot_loss()
 print("finished training TopKastNet(13) for boston data")
 trainer.eval()
