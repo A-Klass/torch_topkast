@@ -108,7 +108,7 @@ class TestTopKastLinear(unittest.TestCase):
         
         net = make_test_net()
         w_before = net.layer_in.weight.clone()
-        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net, device=device)
         
         n_obs = 10
         X = torch.rand(n_obs * input_features).reshape(
@@ -133,7 +133,7 @@ class TestTopKastLinear(unittest.TestCase):
         
         net = make_test_net()
         w_before = net.layer_in.active_fwd_weights.clone()
-        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net, device=device)
         
         n_obs = 10
         X = torch.rand(n_obs * input_features).reshape(
@@ -158,7 +158,7 @@ class TestTopKastLinear(unittest.TestCase):
         
         net = make_test_net()
         idx_fwd_before = net.layer_in.idx_fwd
-        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net, device=device)
         
         n_obs = 10
         X = torch.rand(n_obs * input_features).reshape(
@@ -205,7 +205,7 @@ class TestTopKastLoss(unittest.TestCase):
     def loss_is_differentiable(self):
         
         net = make_test_net()
-        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net, device=device)
         
         n_obs = 10
         X = torch.rand(n_obs * input_features).reshape(
@@ -225,7 +225,7 @@ class TestTopKastLoss(unittest.TestCase):
     def all_backward_weights_are_updated(self):
         
         net = make_test_net()
-        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net, device=device)
         
         n_obs = 10
         X = torch.rand(n_obs * input_features).reshape(
