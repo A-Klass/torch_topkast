@@ -40,7 +40,7 @@ class TopKastLinear(nn.Module):
                  p_forward: float, 
                  p_backward: float, 
                  bias: bool=True, 
-                 device='cpu', 
+                 device=None, 
                  dtype=None) -> None:
         """ Initialize the layer
         Note:
@@ -79,11 +79,9 @@ class TopKastLinear(nn.Module):
         # a superset B⊃A then the "backward sparsity" must be lower.
         assert p_forward >= p_backward
         
-        assert device == "cpu" or device == "cuda"
-        if device == "cuda":
-            assert torch.cuda.is_available()
-            
         factory_kwargs = {'device': device, 'dtype': dtype}
+        self.device = device
+        self.dtype = dtype
  
         super(TopKastLinear, self).__init__()
         
@@ -184,9 +182,9 @@ class TopKastLinear(nn.Module):
         # to update values in-place.
         self.active_fwd_weights = nn.Parameter(
             torch.cat((self.weight[self.idx_fwd].detach(),
-                       torch.zeros(len(self.idx_justbwd[0])).detach()))) # paddings for B\A
-        self.indices = (torch.cat((self.idx_fwd[0], self.idx_justbwd[0])), 
-                        torch.cat((self.idx_fwd[1], self.idx_justbwd[1])))
+                       torch.zeros(len(self.idx_justbwd[0]), device=self.device)))) # paddings for B\A
+        self.indices = torch.cat((torch.cat((self.idx_fwd[0], self.idx_justbwd[0])).reshape(1,-1), 
+                        torch.cat((self.idx_fwd[1], self.idx_justbwd[1])).reshape(1,-1)), 0).to(self.device)
         
         self.set_fwd = range(len(self.idx_fwd[0]))
         self.set_justbwd = range(len(self.idx_fwd[0]), len(self.active_fwd_weights))        
@@ -205,6 +203,7 @@ class TopKastLinear(nn.Module):
         if sparse:
             if self.training:
                 # Sparse training
+                # breakpoint()
                 output = spmm(
                     self.indices, 
                     self.active_fwd_weights, 

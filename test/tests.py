@@ -13,8 +13,8 @@ import unittest
 
 #%% set testing params
 
-# tests only run for certain magnitudes: for very small inputs/nets, chances 
-# are that no updates occur
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(device)
 
 input_features = 10
 hidden_neurons = 16
@@ -27,14 +27,15 @@ def make_test_layer():
         out_features=hidden_neurons, 
         p_forward=0.6,
         p_backward=0.4,
-        bias=True)
+        bias=True,
+        device=device)
 
 def make_test_net():
     class NN(nn.Module):
             def __init__(self):
                 super().__init__()
                 self.layer_in = TopKastLinear(
-                    input_features, hidden_neurons, 0.6, 0.4)
+                    input_features, hidden_neurons, 0.6, 0.4, device=device)
                 self.activation = nn.ReLU()
                 self.layer_out = nn.Linear(hidden_neurons, 1)
             def forward(self, x):
@@ -107,7 +108,7 @@ class TestTopKastLinear(unittest.TestCase):
         
         net = make_test_net()
         w_before = net.layer_in.weight.clone()
-        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net, device=device)
         
         n_obs = 10
         X = torch.rand(n_obs * input_features).reshape(
@@ -116,6 +117,7 @@ class TestTopKastLinear(unittest.TestCase):
         optimizer = torch.optim.SGD(net.parameters(), lr=1e-3)
         
         for i in range(10):
+            X, y = X.to(device), y.to(device)
             optimizer.zero_grad()
             y_hat = net(X)
             l = loss_tk(y_hat, y)
@@ -132,7 +134,7 @@ class TestTopKastLinear(unittest.TestCase):
         
         net = make_test_net()
         w_before = net.layer_in.active_fwd_weights.clone()
-        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net, device=device)
         
         n_obs = 10
         X = torch.rand(n_obs * input_features).reshape(
@@ -141,6 +143,7 @@ class TestTopKastLinear(unittest.TestCase):
         optimizer = torch.optim.SGD(net.parameters(), lr=1e-3)
         
         for i in range(10):
+            X, y = X.to(device), y.to(device)
             optimizer.zero_grad()
             y_hat = net(X)
             l = loss_tk(y_hat, y)
@@ -157,7 +160,7 @@ class TestTopKastLinear(unittest.TestCase):
         
         net = make_test_net()
         idx_fwd_before = net.layer_in.idx_fwd
-        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net, device=device)
         
         n_obs = 10
         X = torch.rand(n_obs * input_features).reshape(
@@ -166,6 +169,7 @@ class TestTopKastLinear(unittest.TestCase):
         optimizer = torch.optim.SGD(net.parameters(), lr=1e-3)
         
         for i in range(10):
+            X, y = X.to(device), y.to(device)
             optimizer.zero_grad()
             y_hat = net(X)
             l = loss_tk(y_hat, y)
@@ -204,7 +208,7 @@ class TestTopKastLoss(unittest.TestCase):
     def loss_is_differentiable(self):
         
         net = make_test_net()
-        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net, device=device)
         
         n_obs = 10
         X = torch.rand(n_obs * input_features).reshape(
@@ -212,6 +216,7 @@ class TestTopKastLoss(unittest.TestCase):
         y = torch.rand(n_obs).float().reshape(-1, 1)
         optimizer = torch.optim.SGD(net.parameters(), lr=1e-3)
         
+        X, y = X.to(device), y.to(device)
         optimizer.zero_grad()
         y_hat = net(X)
         l = loss_tk(y_hat, y)
@@ -224,7 +229,7 @@ class TestTopKastLoss(unittest.TestCase):
     def all_backward_weights_are_updated(self):
         
         net = make_test_net()
-        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net)
+        loss_tk = TopKastLoss(loss=nn.MSELoss, net=net, device=device)
         
         n_obs = 10
         X = torch.rand(n_obs * input_features).reshape(
@@ -233,6 +238,7 @@ class TestTopKastLoss(unittest.TestCase):
         optimizer = torch.optim.SGD(net.parameters(), lr=1e-3)
         
         for i in range(10):
+            X, y = X.to(device), y.to(device)
             optimizer.zero_grad()
             y_hat = net(X)
             l = loss_tk(y_hat, y)
