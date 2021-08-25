@@ -106,7 +106,7 @@ class TopKastTrainer():
             (self.train_count, self.validation_count, self.test_count), 
             generator=torch.Generator().manual_seed(seed))
         
-        pin_memory = True if self.device == 'cuda' else False
+        pin_memory = True if self.device == 'cuda:0' else False
 
         self.train_dataset = DataLoader(
             self.train_dataset, 

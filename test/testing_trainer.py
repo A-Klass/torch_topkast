@@ -51,7 +51,7 @@ class TopKastNet(nn.Module):
 data_synthetic = synthetic_dataset(1024)
 #%%
 net1 = TopKastNet(2) # synthetic data is 2 dimensional
-loss1 = TopKastLoss(loss=nn.MSELoss, net=net1, alpha=0.4)
+loss1 = TopKastLoss(loss=nn.MSELoss, net=net1, alpha=0.4, device=device)
 optimizer1 = torch.optim.SGD(net1.parameters(), lr=1e-03)
 # Instantiate a TopKast trainer
 trainer = TopKastTrainer(net1,
@@ -69,7 +69,7 @@ trainer.plot_loss()
 print("finished training TopKastNet(2) for synthetic data")
 #%% 
 net2 = RegularNet(2)
-loss2 = TopKastLoss(loss=nn.MSELoss, net=net2, alpha=0.4)
+loss2 = TopKastLoss(loss=nn.MSELoss, net=net2, alpha=0.4, device=device)
 optimizer2 = torch.optim.SGD(net2.parameters(), lr=1e-04)
 trainer = TopKastTrainer(net2,
                          loss2,
@@ -88,7 +88,7 @@ print("finished training RegularNet(2) for synthetic data")
 data_boston = boston_dataset()
 #%%
 net3 = RegularNet(13)
-loss3 = TopKastLoss(loss=nn.MSELoss, net=net3, alpha=0.4)
+loss3 = TopKastLoss(loss=nn.MSELoss, net=net3, alpha=0.4, device=device)
 optimizer3 = torch.optim.SGD(net3.parameters(), lr=1e-06)
 trainer = TopKastTrainer(net3,
                          loss3,
@@ -105,7 +105,7 @@ trainer.plot_loss()
 print("finished training RegularNet(13) for boston data")
 #%%
 net4 = TopKastNet(13)
-loss4 = TopKastLoss(loss=nn.MSELoss, net=net4, alpha=0.4)
+loss4 = TopKastLoss(loss=nn.MSELoss, net=net4, alpha=0.4, device=device)
 optimizer4 = torch.optim.Adam(net4.parameters(), lr=1e-01)
 trainer = TopKastTrainer(net4,
                          loss4,
