@@ -8,6 +8,7 @@ from torch_topkast.topkast_trainer import TopKastTrainer
 import torch
 import torch.nn as nn
 from test_data import *
+import gc # garbage collector
 
 #%%
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -45,12 +46,14 @@ class TopKastNet(nn.Module):
         y = self.hidden1(self.activation(y), sparse=sparse)
         
         return self.layer_out(self.activation(y), sparse=sparse)
-
+#%% # clean up GPU memory first
+gc.collect()
+torch.cuda.empty_cache()
 #%% 
 # Test with synthetic data sporting 2 features
 data_synthetic = synthetic_dataset(1024)
 #%%
-net1 = TopKastNet(2).to(device) # synthetic data is 2 dimensional
+net1 = TopKastNet(2)#.to(device) # synthetic data is 2 dimensional
 loss1 = TopKastLoss(loss=nn.MSELoss, net=net1, alpha=0.4, device=device)
 optimizer1 = torch.optim.SGD(net1.parameters(), lr=1e-03)
 # Instantiate a TopKast trainer
@@ -107,7 +110,7 @@ trainer.train()
 trainer.plot_loss()
 print("finished training RegularNet(13) for boston data")
 #%%
-net4 = TopKastNet(13).to(device)
+net4 = TopKastNet(13)#.to(device)
 loss4 = TopKastLoss(loss=nn.MSELoss, net=net4, alpha=0.4, device=device)
 optimizer4 = torch.optim.Adam(net4.parameters(), lr=1e-01)
 trainer = TopKastTrainer(net4,
