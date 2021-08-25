@@ -19,7 +19,7 @@ from torch_sparse import spmm
 #%% TopKast linear layer
 class TopKastLinear(nn.Module):
     """"
-    Sparse adaptation of nn.Linear module with topkast.
+    Sparse adaptation of nn.Linear module with topkast (https://arxiv.org/abs/2106.03517).
     
     Includes a forward sparse with selecting Top K weights in 
     the layer, updating the active parameter set A
@@ -45,9 +45,9 @@ class TopKastLinear(nn.Module):
         """ Initialize the layer
         Note:
             We refer to p_forward, p_backward as forward and backward
-            sparsity, respectively. Since there are more parameters 
-            affected in the backward pass than in the forward pass, 
-            we enforce p_forward > p_backward.
+            sparsity (as in this percentage we set to zero), respectively.
+            Since there are more parameters affected in the backward pass 
+            than in the forward pass, we enforce p_forward >= p_backward.
                 
         Args:
             in_features (int): input dimension (# of batch size)
@@ -58,8 +58,6 @@ class TopKastLinear(nn.Module):
                                 How many parameters (in %) are set to 0.
             bias (bool): whether to add bias term
             device (str): either 'cpu' or 'cuda'
-            dtype: do we need this?
-
         """
         
         # Input checks
@@ -145,7 +143,7 @@ class TopKastLinear(nn.Module):
             The mask from compute_mask(matrix, K)
             
         Returns:
-            torch.Tensor cntaining indices of B\A
+            torch.Tensor containing indices of B\A
         """
         
         assert self.idx_fwd is not None and self.idx_bwd is not None, \
@@ -192,7 +190,7 @@ class TopKastLinear(nn.Module):
     def reset_justbwd_weights(self) -> None:
         """
         Updates weight matrix for B\A and resets the corresponding weights in 
-        the forward weight_vector
+        the active_fwd_weights.
         """
         self.weight[self.idx_justbwd] += self.active_fwd_weights.detach()[self.set_justbwd]
         with torch.no_grad():

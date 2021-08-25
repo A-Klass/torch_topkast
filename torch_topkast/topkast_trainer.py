@@ -125,6 +125,9 @@ class TopKastTrainer():
         self.best_net = None
     
     def _burn_in(self, epoch) -> None:
+      """
+      Checks depending on the epoch if the active parameter set should be updated.
+      """
       if epoch < self.num_epochs_explore:
             for layer in self.net.children():
                 if isinstance(layer, TopKastLinear):
@@ -136,6 +139,10 @@ class TopKastTrainer():
                         layer.update_active_param_set()
 
     def _reset_justbwd_weights(self) -> None:
+        """
+        Wrapper function for resetting B\A to zeros, since optim.step makes these parameters
+        nonzero.
+        """
         for layer in self.net.children():
             if isinstance(layer, TopKastLinear):
                 layer.reset_justbwd_weights()
@@ -165,7 +172,7 @@ class TopKastTrainer():
             if self.losses_validation[epoch] < self.best_loss:
                 self.best_epoch = epoch
                 self.best_loss = self.losses_validation[epoch]
-                # best_net = copy.deepcopy(net) # deepcopy doesn't work that way
+                self.best_net = self.net
 
             # Check if we are patience epochs away from the current best epoch, 
             # if that's the case break the training loop
@@ -177,20 +184,34 @@ class TopKastTrainer():
             print(self.losses_train[1:(self.best_epoch)])
 
     def predict(self, data):
+        """
+        Wrapper for computing the prediction of the trained network with the `data` provided.
+        """
         with torch.no_grad():
             return self.net(data)
     
     def eval(self, test_data = None):
         """
-        evaluate on test set
+        Computes and returns the loss for the test dataset or the provided `test_data`. 
         """
-        with torch.no_grad():
-            test_loss = self.loss(
-                self.net(self.test_dataset[:][0].float().to(self.device), sparse=False), 
-                self.test_dataset[:][1].float().to(self.device).reshape(-1, 1))
-            print(f'test loss {test_loss}')
+        if test_data is None:
+            with torch.no_grad():
+                test_loss = self.loss(
+                    self.net(self.test_dataset[:][0].float().to(self.device), sparse=False), 
+                    self.test_dataset[:][1].float().to(self.device).reshape(-1, 1))
+        else:
+            with torch.no_grad():
+                test_loss = self.loss(
+                    self.net(self.test_data.float().to(self.device), sparse=False), 
+                    self.test_data.float().to(self.device).reshape(-1, 1))
+        return test_loss
     
     def plot_loss(self):
+        """
+        Plots the two losses acquired through training.
+        1. Plot is of the train loss
+        2. Plot is of the validation loss
+        """
         fig, axs = plt.subplots(2)
         plt.subplots_adjust(hspace = .5)
         axs[0].plot(range(len(self.losses_train)), self.losses_train)

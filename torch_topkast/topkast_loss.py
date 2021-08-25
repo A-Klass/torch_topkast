@@ -10,6 +10,7 @@ class TopKastLoss(nn.Module):
     Takes a normal torch.nn.loss and then adds the discounted (alpha) 
     L2-norm of all active(!) parameters. Goes through all the layers of the net 
     and looks for TopkLinear layers and only takes the appropriate weights.
+    If the net doesn't have any TopKastLinear layers this is just a L2 weighted loss.
     """
     def __init__(self, loss, net, alpha=1, device=None) -> None:
         """
@@ -29,7 +30,8 @@ class TopKastLoss(nn.Module):
     
     def compute_norm_active_set(self):
         """
-        Updates the forward and backward indices in self
+        Computes the L2-norms for the active weights in the forward pass and the weighted
+        L2-norm of the weights that are added in the backward pass.
         """
         
         penalty = torch.tensor(0., device=self.device)
