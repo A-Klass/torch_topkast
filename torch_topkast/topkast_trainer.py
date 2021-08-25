@@ -1,6 +1,8 @@
 """
-Class for training according to the authors 
-With burn in phase etc.
+Class that executes the training procedure according to the authors 
+(Jayakumar et al.(2021)).
+Uses loss as defined in the class Topkastloss.
+Compatible with the usual torch.optim optimizers.
 """
 from torch_topkast.topkast_linear import TopKastLinear
 from torch_topkast.topkast_loss import TopKastLoss
@@ -8,11 +10,11 @@ import numpy as np
 import torch 
 from torch.utils.data import DataLoader, random_split, Dataset
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt # for method plotting val/train losses
 
 class TopKastTrainer():
     """
-    This class executes the training procedure according to Jayakumar et al.(2021).
+    This class executes the training procedure according to the authors.
     Includes:
         - exploration phase (~burn in period): selecting different active sets A 
           and corresponding α at each iteration + performing one update step on θ 
@@ -21,7 +23,7 @@ class TopKastTrainer():
     """
     
     def __init__(self,
-                 topkast_net,
+                 topkast_net: torch.nn.Module,
                  loss: TopKastLoss,
                  num_epochs: int = 50,
                  print_info_every: int = 10,
@@ -32,31 +34,28 @@ class TopKastTrainer():
                  train_val_test_split: list = [.7, .2, .1],
                  patience: int = None,
                  optimizer: torch.optim = None,
-                 seed: float = 0,
+                 seed: int = 42,
                  data: Dataset = None,
-                 device: str = None
+                 device: torch.device = None
                  ):
         """
         Args:
-            topkast_net (TopKastNet): a neural net with TopKast sparse layers.
-            loss (TopKastLoss):
+            topkast_net (torch.nn.Module): A neural net which may include TopKast sparse layers.
+            loss (TopKastLoss): Loss which treats sparse TopKast layers with an according penalty.
             num_epochs (int): # of epochs for which training is run.
-            print_info_every(int): print val/train loss es periodically.
-            print_loss_history(bool): print training results.
+            print_info_every(int): Print val/train losses periodically.
+            print_loss_history(bool): Print training results.
             num_epochs_explore: # of epochs for exploration phase
-            update_every: do Top-K selection at every `update_every` epoch.
+            update_every: Do Top-K selection at every `update_every` epoch.
             batch_size (int): # of observations per batch.
-            loss (TopKastLoss): loss function with regularization.
-            train_val_test_split (list): split up data set in training, validation and test set.
-            patience (int): early stopping if validation loss keeps not improving.
-            seed (float): Seed for the train/val/test split.
-            optimizer (torch.nn.opim): optimizer from pytorch. not supported yet.
+            train_val_test_split (list): Split up data set in training, validation and test set.
+            patience (int): Early stopping if validation loss keeps not improving.
+            seed (int): Seed for the train/val/test split.
+            optimizer (torch.nn.optim): PyTorch optimizer.
             data (torch.utils.data.Dataset): A dataset class with a `__getitem__()` Funktion.
-            device (str): 'cpu' or 'cuda' depending on which should be trained.
+            device (torch.device): 'cpu' or 'cuda' depending on which should be trained.
         """
         # Init definitions and asserts
-        
-        self.device = device
         self.net = topkast_net
         self.num_epochs = num_epochs
         self.print_info_every = print_info_every
@@ -106,7 +105,18 @@ class TopKastTrainer():
             (self.train_count, self.validation_count, self.test_count), 
             generator=torch.Generator().manual_seed(seed))
         
-        pin_memory = True if self.device == 'cuda:0' else False
+        if device is None:
+            # check whether GPU can be used for training
+            if torch.cuda.is_available():
+                self.device = torch.device('cuda:0')
+                print("GPU available. Training on", self.device)
+            else:
+                self.device = torch.device('cpu')
+                print("Training on", self.device)
+        else:
+            self.device = device
+
+        pin_memory = True if self.device != torch.device('cpu') else False
 
         self.train_dataset = DataLoader(
             self.train_dataset, 
@@ -116,7 +126,7 @@ class TopKastTrainer():
             num_workers=0)
         
         self.optimizer = optimizer
-            
+
         self.losses_validation = np.zeros(self.num_epochs)
         self.losses_train = np.zeros(self.num_epochs)
         self.test_loss = None
