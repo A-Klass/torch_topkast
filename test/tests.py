@@ -13,9 +13,7 @@ import unittest
 
 #%% set testing params
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(device)
-
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 input_features = 10
 hidden_neurons = 16
 
