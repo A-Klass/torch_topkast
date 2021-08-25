@@ -15,11 +15,13 @@ import math
 import torch
 import torch.nn as nn
 from torch_sparse import spmm
+from typing import Optional
 
 #%% TopKast linear layer
 class TopKastLinear(nn.Module):
     """"
-    Sparse adaptation of nn.Linear module with topkast (https://arxiv.org/abs/2106.03517).
+    Sparse adaptation of nn.Linear module with topkast 
+    (https://arxiv.org/abs/2106.03517).
     
     Includes a forward sparse with selecting Top K weights in 
     the layer, updating the active parameter set A
@@ -40,8 +42,9 @@ class TopKastLinear(nn.Module):
                  p_forward: float, 
                  p_backward: float, 
                  bias: bool=True, 
-                 device: torch.device = None, 
-                 dtype=None) -> None:
+                 device: Optional[torch.device]=None, 
+                 dtype: Optional[torch.dtype]=None) -> None:
+        
         """ Initialize the layer
         Note:
             We refer to p_forward, p_backward as forward and backward
@@ -87,7 +90,8 @@ class TopKastLinear(nn.Module):
         self.p_forward, self.p_backward = p_forward, p_backward
         
         # Dense tensor with full dimensionality to store weights in:
-        self.weight = torch.empty((out_features, in_features), **factory_kwargs)
+        self.weight = torch.empty(
+            (out_features, in_features), **factory_kwargs)
         
         if bias:
             self.bias = nn.Parameter(
@@ -113,8 +117,7 @@ class TopKastLinear(nn.Module):
             
     # Masking operations
     @staticmethod
-    def compute_mask(matrix,
-                     p: float):
+    def compute_mask(matrix, p: float):
         """
         Get the indices of `matrix` values that belong to
         the `p` biggest absolute values in this matrix
@@ -136,8 +139,8 @@ class TopKastLinear(nn.Module):
         """
         Compute set difference between forward set (A) and backward set (B).
         Supposed to be called within update_active_param_set() which 
-        sets the indices by computing the mask for self.idx_fwd and self.idx_bwd,
-        thus creating self.idx_fwd and self.idx_bwd
+        sets the indices by computing the mask for self.idx_fwd and 
+        self.idx_bwd, thus creating self.idx_fwd and self.idx_bwd
         
         Input:
             The mask from compute_mask(matrix, K)
@@ -169,7 +172,8 @@ class TopKastLinear(nn.Module):
         # when not calling for first time, then update 
         # all parameters affected in the backward pass
         if self.active_fwd_weights is not None:
-            self.weight[self.idx_fwd] = self.active_fwd_weights.detach()[self.set_fwd]       
+            self.weight[self.idx_fwd] = self.active_fwd_weights.detach()[
+                self.set_fwd]       
         self.idx_fwd = self.compute_mask(self.weight, self.p_forward)
         self.idx_bwd = self.compute_mask(self.weight, self.p_backward)
         self.idx_justbwd = self.compute_just_bwd()
@@ -179,20 +183,25 @@ class TopKastLinear(nn.Module):
         # We do this since for a sparse coo tensor it is impossible
         # to update values in-place.
         self.active_fwd_weights = nn.Parameter(
-            torch.cat((self.weight[self.idx_fwd].detach(),
-                       torch.zeros(len(self.idx_justbwd[0]), device=self.device)))) # paddings for B\A
-        self.indices = torch.cat((torch.cat((self.idx_fwd[0], self.idx_justbwd[0])).reshape(1,-1), 
-                        torch.cat((self.idx_fwd[1], self.idx_justbwd[1])).reshape(1,-1)), 0).to(self.device)
+            torch.cat( # paddings for B\A
+                (self.weight[self.idx_fwd].detach(),
+                 torch.zeros(len(self.idx_justbwd[0]), device=self.device)))) 
+        self.indices = torch.cat(
+            (torch.cat((self.idx_fwd[0], self.idx_justbwd[0])).reshape(1,-1), 
+             torch.cat((self.idx_fwd[1], self.idx_justbwd[1])).reshape(1,-1)), 
+            0).to(self.device)
         
         self.set_fwd = range(len(self.idx_fwd[0]))
-        self.set_justbwd = range(len(self.idx_fwd[0]), len(self.active_fwd_weights))        
+        self.set_justbwd = range(
+            len(self.idx_fwd[0]), len(self.active_fwd_weights))        
 
     def reset_justbwd_weights(self) -> None:
         """
         Updates weight matrix for B\A and resets the corresponding weights in 
         the active_fwd_weights.
         """
-        self.weight[self.idx_justbwd] += self.active_fwd_weights.detach()[self.set_justbwd]
+        self.weight[self.idx_justbwd] += self.active_fwd_weights.detach()[
+            self.set_justbwd]
         with torch.no_grad():
             self.active_fwd_weights[self.set_justbwd] = 0
 
