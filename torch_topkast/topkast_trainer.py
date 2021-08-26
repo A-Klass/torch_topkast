@@ -4,13 +4,18 @@ Class that executes the training procedure according to the authors
 Uses loss as defined in the class Topkastloss.
 Compatible with the usual torch.optim optimizers.
 """
+
+#%% Imports
+
 from torch_topkast.topkast_linear import TopKastLinear
 from torch_topkast.topkast_loss import TopKastLoss
 import numpy as np
 import torch 
 from torch.utils.data import DataLoader, random_split, Dataset
+import matplotlib.pyplot as plt
+from typing import Optional
 
-import matplotlib.pyplot as plt # for method plotting val/train losses
+#%%
 
 class TopKastTrainer():
     """
@@ -25,36 +30,43 @@ class TopKastTrainer():
     def __init__(self,
                  topkast_net: torch.nn.Module,
                  loss: TopKastLoss,
-                 num_epochs: int = 50,
-                 print_info_every: int = 10,
-                 print_loss_history: bool = False,
-                 num_epochs_explore: int = None,
-                 update_every: int = None,
-                 batch_size: int = None,
-                 train_val_test_split: list = [.7, .2, .1],
-                 patience: int = None,
-                 optimizer: torch.optim = None,
-                 seed: int = 42,
-                 data: Dataset = None,
-                 device: torch.device = None
+                 num_epochs: int=50,
+                 print_info_every: int=10,
+                 print_loss_history: bool=False,
+                 num_epochs_explore: Optional[int]=None,
+                 update_every: Optional[int]=None,
+                 batch_size: Optional[int]=None,
+                 train_val_test_split: list=[.7, .2, .1],
+                 patience: Optional[int]=None,
+                 optimizer: torch.optim.Optimizer=None,
+                 seed: int=42,
+                 data: Dataset=None,
+                 device: Optional[torch.device]=None
                  ):
         """
         Args:
-            topkast_net (torch.nn.Module): A neural net which may include TopKast sparse layers.
-            loss (TopKastLoss): Loss which treats sparse TopKast layers with an according penalty.
+            topkast_net (torch.nn.Module): A neural net which may include 
+            TopKast sparse layers.
+            loss (TopKastLoss): Loss which treats sparse TopKast layers with an 
+            according penalty.
             num_epochs (int): # of epochs for which training is run.
             print_info_every(int): Print val/train losses periodically.
             print_loss_history(bool): Print training results.
             num_epochs_explore: # of epochs for exploration phase
             update_every: Do Top-K selection at every `update_every` epoch.
             batch_size (int): # of observations per batch.
-            train_val_test_split (list): Split up data set in training, validation and test set.
-            patience (int): Early stopping if validation loss keeps not improving.
+            train_val_test_split (list): Split up data set in training, 
+            validation and test set.
+            patience (int): Early stopping if validation loss keeps not 
+            improving.
             seed (int): Seed for the train/val/test split.
             optimizer (torch.nn.optim): PyTorch optimizer.
-            data (torch.utils.data.Dataset): A dataset class with a `__getitem__()` Funktion.
-            device (torch.device): 'cpu' or 'cuda' depending on which should be trained.
+            data (torch.utils.data.Dataset): A dataset class with a 
+            `__getitem__()` Funktion.
+            device (torch.device): 'cpu' or 'cuda' depending on which should 
+            be trained.
         """
+        
         # Init definitions and asserts
         self.net = topkast_net
         self.num_epochs = num_epochs
@@ -67,14 +79,14 @@ class TopKastTrainer():
             assert num_epochs_explore <= num_epochs
         self.num_epochs_explore = num_epochs_explore
     
-        # update weights every couple of epochs
+        # Update weights every couple of epochs
         if update_every is None:
             update_every = max(1, int(num_epochs / 5))
         else:
             assert update_every >= 1
         self.update_every = update_every 
     
-        # patience for early stopping
+        # Patience for early stopping
         if patience is None:
             patience = num_epochs
         self.patience = patience
@@ -88,8 +100,7 @@ class TopKastTrainer():
         if batch_size is None:
             batch_size = max(1, int(self.data.__len__() / 50))
         self.batch_size = batch_size
-        #####################
-    
+            
         self.loss = loss
         
         if len(train_val_test_split) < 3:
@@ -150,8 +161,8 @@ class TopKastTrainer():
 
     def _reset_justbwd_weights(self) -> None:
         """
-        Wrapper function for resetting B\A to zeros, since optim.step makes these parameters
-        nonzero.
+        Wrapper function for resetting B\A to zeros, since optim.step makes 
+        these parameters nonzero.
         """
         for layer in self.net.children():
             if isinstance(layer, TopKastLinear):
@@ -172,10 +183,15 @@ class TopKastTrainer():
                 self.losses_train[epoch] += loss_epoch / len(y)
             with torch.no_grad(): 
                 self.losses_validation[epoch] = self.loss(
-                    self.net(self.validation_dataset[:][0].float().to(self.device), sparse=False), 
-                    self.validation_dataset[:][1].float().to(self.device).reshape(-1, 1))
+                    self.net(
+                        self.validation_dataset[:][0].float().to(self.device), 
+                        sparse=False), 
+                    self.validation_dataset[:][1].float().to(
+                        self.device).reshape(-1, 1))
             if (epoch + 1) % self.print_info_every == 0:
-                print(f'epoch {epoch + 1}, val loss {self.losses_validation[epoch]:f} train loss {self.losses_train[epoch]:f}')  
+                print(f'epoch {epoch + 1}, val loss \
+                      {self.losses_validation[epoch]:f} train loss \
+                          {self.losses_train[epoch]:f}')  
         
             # Compare this loss to the best current loss
             # If it's better save the current net and change best loss
@@ -195,25 +211,32 @@ class TopKastTrainer():
 
     def predict(self, data):
         """
-        Wrapper for computing the prediction of the trained network with the `data` provided.
+        Wrapper for computing the prediction of the trained network with the 
+        `data` provided.
         """
         with torch.no_grad():
             return self.net(data)
     
-    def eval(self, test_data = None):
+    def eval(self, test_data=None):
         """
-        Computes and returns the loss for the test dataset or the provided `test_data`. 
+        Computes and returns the loss for the test dataset or the provided 
+        `test_data`. 
         """
         if test_data is None:
             with torch.no_grad():
                 test_loss = self.loss(
-                    self.net(self.test_dataset[:][0].float().to(self.device), sparse=False), 
-                    self.test_dataset[:][1].float().to(self.device).reshape(-1, 1))
+                    self.net(
+                        self.test_dataset[:][0].float().to(self.device), 
+                        sparse=False), 
+                    self.test_dataset[:][1].float().to(
+                        self.device).reshape(-1, 1))
         else:
             with torch.no_grad():
                 test_loss = self.loss(
-                    self.net(self.test_data.float().to(self.device), sparse=False), 
+                    self.net(
+                        self.test_data.float().to(self.device), sparse=False), 
                     self.test_data.float().to(self.device).reshape(-1, 1))
+                
         return test_loss
     
     def plot_loss(self):
@@ -225,6 +248,9 @@ class TopKastTrainer():
         fig, axs = plt.subplots(2)
         plt.subplots_adjust(hspace = .5)
         axs[0].plot(range(len(self.losses_train)), self.losses_train)
-        axs[0].set_title("training loss")
-        axs[1].plot(range(len(self.losses_validation)), self.losses_validation, color="red")
-        axs[1].set_title("validation loss")
+        axs[0].set_title('training loss')
+        axs[1].plot(
+            range(len(self.losses_validation)), 
+            self.losses_validation, 
+            color='red')
+        axs[1].set_title('validation loss')

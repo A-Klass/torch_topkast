@@ -11,8 +11,7 @@ from test_data import *
 import gc # garbage collector
 
 #%%
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(device)
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 #%%
 # Setup a small vanilla net to compare against
 class RegularNet(nn.Module):
@@ -51,7 +50,7 @@ gc.collect()
 torch.cuda.empty_cache()
 #%% 
 # Test with synthetic data sporting 2 features
-data_synthetic = synthetic_dataset(1024)
+data_synthetic = SyntheticDataset(1024)
 #%%
 net1 = TopKastNet(2)#.to(device) # synthetic data is 2 dimensional
 loss1 = TopKastLoss(loss=nn.MSELoss, net=net1, alpha=0.4, device=device)
@@ -90,7 +89,7 @@ trainer.train()
 trainer.plot_loss()
 print("finished training RegularNet(2) for synthetic data")
 #%% now with boston which has 13 features
-data_boston = boston_dataset()
+data_boston = BostonDataset()
 #%%
 net3 = RegularNet(13).to(device)
 loss3 = TopKastLoss(loss=nn.MSELoss, net=net3, alpha=0.4, device=device)

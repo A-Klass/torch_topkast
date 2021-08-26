@@ -2,7 +2,7 @@ from sklearn import datasets
 import torch
 from torch.utils.data import Dataset
 
-class boston_dataset(Dataset):
+class BostonDataset(Dataset):
     """Boston dataset."""
 
     def __init__(self):
@@ -19,7 +19,7 @@ class boston_dataset(Dataset):
         target = torch.tensor(self.dataset.target[idx])
         return data, target
 
-class synthetic_dataset():
+class SyntheticDataset():
     """Synthetic two-dimensional regression task"""
     
     def __init__(self, n_obs):
