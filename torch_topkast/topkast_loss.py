@@ -1,6 +1,6 @@
 #%% Imports
 
-from torch_topkast.topkast_linear import TopKastLinear  
+from torch_topkast.topkast_linear import TopKastLinear # type: ignore
 import torch
 import torch.nn as nn
 from typing import Optional
@@ -30,7 +30,7 @@ class TopKastLoss(nn.Module):
         super(TopKastLoss, self).__init__()
         self.loss = loss()
         self.net = net
-        assert alpha >= 0 and alpha <= 1
+        assert alpha >= 0. and alpha <= .1
         self.alpha = alpha
         self.device = device
     
