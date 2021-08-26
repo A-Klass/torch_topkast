@@ -14,7 +14,7 @@ torch.nn.Sequential(
 import math
 import torch
 import torch.nn as nn
-from torch_sparse import spmm
+from torch_sparse import spmm # type: ignore
 from typing import Optional
 
 #%% TopKast linear layer
@@ -64,21 +64,19 @@ class TopKastLinear(nn.Module):
         """
         
         # Input checks
-        
+
         for i in [in_features, out_features]:
-            if i < 0:
-                raise ValueError(i % "must be > 0")
-        for j in [p_forward, p_backward]:
-            if j < 0:
-                raise ValueError(j % "must be >= 0")
-            if j >= 1:
-                raise ValueError(j % "must be < 1")
+            assert i > 0, 'number of in and out features must be > 0'
+        for i in [p_forward, p_backward]:
+            assert i >= 0. and i < 1., 'sparsity must be in [0, 1)'
             
         # Usually, you would want something like: values that make up 
         # the top 5 % (by magnitude) such that the sparsity is 95%.
         # If the "forward sparsity" is 95% and we backpropagate for
         # a superset B⊃A then the "backward sparsity" must be lower.
-        assert p_forward >= p_backward
+        
+        assert p_forward >= p_backward, 'sparsity in backward pass cannot be \
+            greater than in forward pass'
         
         factory_kwargs = {'device': device, 'dtype': dtype}
         self.device = device
@@ -98,7 +96,7 @@ class TopKastLinear(nn.Module):
                 torch.empty(out_features, **factory_kwargs))
         else:
             self.register_parameter('bias', None)
-            
+        
         self.reset_parameters()
         self.active_fwd_weights = None
         self.update_active_param_set()
