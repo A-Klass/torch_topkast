@@ -145,32 +145,51 @@ class TopKastTrainer():
         self.best_epoch = 0
         self.best_net = None
     
-    def _burn_in(self, epoch) -> None:
-      """
-      Checks depending on the epoch if the active parameter set should be updated.
-      """
-      if epoch < self.num_epochs_explore:
-            for layer in self.net.children():
-                if isinstance(layer, TopKastLinear):
-                    layer.update_active_param_set()
-      else:
+    ######################################################################
+    # Helper functions
+    ######################################################################
+    def _update_sparse_layers(self):
+        """
+        Goes through all sparse TopKast layers
+        and updates the active parameter set, accordingly.
+        
+        This is supposed to be called by `_burn_in()` and 
+        `_update_periodically()`
+        """
+        for layer in self.net.children():
+            if isinstance(layer, TopKastLinear):
+                layer.update_active_param_set()
+                
+    def _check_and_update_forward_set(self, epoch):
+        """
+        Checks depending on the epoch if the active parameter set(s) 
+        should be updated. 
+        If we are in the exploration phase, then we update the active 
+        param sets in all the sparse layers in every epoch.
+        After the exploration phase, we update the active sets according
+        to how often the user has defined it (via `update_every`)
+        """
+        if epoch <= self.num_epochs_explore:
+            _update_sparse_layers()
+        else:
             if epoch % self.update_every == 0:
-               for layer in self.net.children():
-                   if isinstance(layer, TopKastLinear):
-                        layer.update_active_param_set()
-
+                _update_sparse_layers()
+                
     def _reset_justbwd_weights(self) -> None:
         """
-        Wrapper function for resetting B\A to zeros, since optim.step makes 
-        these parameters nonzero.
+        Wrapper function for resetting B\A to zeros, since optim.step makes these
+        parameters nonzero.
         """
         for layer in self.net.children():
             if isinstance(layer, TopKastLinear):
                 layer.reset_justbwd_weights()
-
+                
+    ######################################################################
+    # Core functionality
+    ######################################################################
     def train(self):
         for epoch in range(self.num_epochs):
-            self._burn_in(epoch)
+            self._check_and_update_forward_set(epoch)
             for X, y in self.train_dataset:
                 X = X.float().to(self.device)
                 y = y.float().reshape(-1, 1).to(self.device)
