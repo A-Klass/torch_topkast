@@ -170,10 +170,10 @@ class TopKastTrainer():
         to how often the user has defined it (via `update_every`)
         """
         if epoch <= self.num_epochs_explore:
-            _update_sparse_layers()
+            self._update_sparse_layers()
         else:
             if epoch % self.update_every == 0:
-                _update_sparse_layers()
+                self._update_sparse_layers()
                 
     def _reset_justbwd_weights(self) -> None:
         """
