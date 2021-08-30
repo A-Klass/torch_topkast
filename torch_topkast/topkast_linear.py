@@ -19,7 +19,7 @@ from typing import Optional
 
 #%% TopKast linear layer
 class TopKastLinear(nn.Module):
-    """"
+    """
     Sparse adaptation of nn.Linear module with topkast 
     (https://arxiv.org/abs/2106.03517).
     
