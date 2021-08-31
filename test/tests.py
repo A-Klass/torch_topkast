@@ -255,9 +255,4 @@ class TestTopKastLoss(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 
-#%% 
 
-# TODO
-# test that active set actually changes over iterations
-
-#%%

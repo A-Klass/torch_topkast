@@ -2,10 +2,11 @@
 
 As of now, we provide a sparse version of a linear nn.Module.
 
-Intended usage of TopKastLinear is much like any torch layer module:
+Intended usage of TopKastLinear is much like any torch layer module, except 
+you need to specify forward and backward sparsity like:
 
 torch.nn.Sequential(
-    torch.nn.TopKastLinear(13,13),
+    torch.nn.TopKastLinear(13, 13, 0.6, 0.4),
     torch.nn.ReLU())
 """
 
@@ -23,7 +24,7 @@ class TopKastLinear(nn.Module):
     Sparse adaptation of nn.Linear module with topkast 
     (https://arxiv.org/abs/2106.03517).
     
-    Includes a forward sparse with selecting Top K weights in 
+    Includes a sparse forward pass with selecting Top K weights in 
     the layer, updating the active parameter set A
     We distinguish between parameter sets with different flavors:
      - Forward set (A): Weights used to compute output of model in
@@ -50,7 +51,8 @@ class TopKastLinear(nn.Module):
             We refer to p_forward, p_backward as forward and backward
             sparsity (as in this percentage we set to zero), respectively.
             Since there are more parameters affected in the backward pass 
-            than in the forward pass, we enforce p_forward >= p_backward.
+            than in the forward pass, we enforce p_forward >= p_backward - 
+            this encourages updating of the set of active weights.
                 
         Args:
             in_features (int): input dimension (# of batch size)
@@ -128,7 +130,7 @@ class TopKastLinear(nn.Module):
             
         Returns:
             mask as torch.Tensor tuple containing indices of
-            matrix' biggest values
+            matrix's biggest values
         """
         threshold = torch.quantile(torch.abs(matrix), p)
         return torch.where(torch.abs(matrix) >= threshold)

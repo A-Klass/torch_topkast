@@ -57,14 +57,14 @@ class TopKastTrainer():
             batch_size (int): # of observations per batch.
             train_val_test_split (list): Split up data set in training, 
             validation and test set.
-            patience (int): Early stopping if validation loss keeps not 
-            improving.
+            patience (int): Early stopping if validation loss does not improve 
+            (substantially).
             seed (int): Seed for the train/val/test split.
             optimizer (torch.nn.optim): PyTorch optimizer.
             data (torch.utils.data.Dataset): A dataset class with a 
-            `__getitem__()` Funktion.
-            device (torch.device): 'cpu' or 'cuda' depending on which should 
-            be trained.
+            `__getitem__()` function.
+            device (torch.device): 'cpu' or 'cuda' depending on device to be 
+            used.
         """
         
         # Init definitions and asserts
@@ -164,7 +164,7 @@ class TopKastTrainer():
         """
         Checks depending on the epoch if the active parameter set(s) 
         should be updated. 
-        If we are in the exploration phase, then we update the active 
+        If we are in the exploration phase, we update the active 
         param sets in all the sparse layers in every epoch.
         After the exploration phase, we update the active sets according
         to how often the user has defined it (via `update_every`)
@@ -177,8 +177,8 @@ class TopKastTrainer():
                 
     def _reset_justbwd_weights(self) -> None:
         """
-        Wrapper function for resetting B\A to zeros, since optim.step makes these
-        parameters nonzero.
+        Wrapper function for resetting B\A to zeros, since optim.step makes 
+        these parameters nonzero.
         """
         for layer in self.net.children():
             if isinstance(layer, TopKastLinear):
@@ -261,8 +261,8 @@ class TopKastTrainer():
     def plot_loss(self):
         """
         Plots the two losses acquired through training.
-        1. Plot is of the train loss
-        2. Plot is of the validation loss
+        1st plot is of the train loss
+        2nd plot is of the validation loss
         """
         fig, axs = plt.subplots(2)
         plt.subplots_adjust(hspace = .5)

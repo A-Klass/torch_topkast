@@ -8,7 +8,7 @@ from typing import Optional
 #%%
 class TopKastLoss(nn.Module):
     """
-    Takes a normal torch.nn.loss and then adds the discounted (alpha) 
+    Takes a standard torch.nn.loss and then adds the discounted (alpha) 
     L2-norm of all active(!) parameters. Goes through all the layers of the 
     net and looks for TopkLinear layers and only takes the appropriate weights.
     If the net doesn't have any TopKastLinear layers, this is just an 
