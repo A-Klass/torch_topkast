@@ -35,7 +35,7 @@ def make_test_net():
                 self.layer_in = TopKastLinear(
                     input_features, hidden_neurons, 0.6, 0.4, device=device)
                 self.activation = nn.ReLU()
-                self.layer_out = nn.Linear(hidden_neurons, 1)
+                self.layer_out = nn.Linear(hidden_neurons, 1).to(device)
             def forward(self, x):
                 return self.activation(
                     self.layer_out(self.activation(self.layer_in(x))))
@@ -52,7 +52,7 @@ class TestTopKastLinear(unittest.TestCase):
         layer_tkl.reset_parameters()
         
         for param in [layer_tkl.weight, layer_tkl.bias]:
-            self.assertFalse(all(param.detach().numpy().flatten() == 0.))
+            self.assertFalse(all(param.detach().cpu().numpy().flatten() == 0.))
             
     def test_weights_have_grads(self):
         
