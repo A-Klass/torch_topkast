@@ -1,7 +1,7 @@
-# Course Applied Deep Learning with TensorFlow and PyTorch
+# Top-KAST: Top-K Always Sparse Training
 
 ![img](figs/srsly_wtf.png)
-## Implementation of Top-K Always Sparse Training in Pytorch
+## Implementation of Top-KAST in Pytorch
 
 This repository contains a package for an implementation of [Top-KAST: Top-K Always Sparse Training](https://arxiv.org/abs/2106.03517v1). Top-KAST is a generic method to train fully sparse neural networks. We follow the original ideas from the authors' Top-KAST paper as closely as possible.
 
